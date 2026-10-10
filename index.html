@@ -6,7 +6,7 @@
 <title>Laboratorio Karnaugh</title>
 <meta name="description" content="Simplifica funciones lógicas con mapas de Karnaugh de 2 a 6 variables: SOP y POS mínimas, paso a paso con Quine–McCluskey, práctica, circuitos de varias salidas, protoboard, teoría e informe en PDF.">
 <meta name="application-name" content="Laboratorio Karnaugh">
-<meta name="version" content="5.0.0">
+<meta name="version" content="5.0.1">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Laboratorio Karnaugh">
 <meta property="og:description" content="Simplifica, entiende y arma funciones lógicas con mapas de Karnaugh, directamente en el navegador.">
@@ -4104,7 +4104,11 @@ async function makePDF() {
       H1('6. Montaje en protoboard');
       await IMG(bo.svg, CW, wide ? 150 : 120, true);
       if (wide) { doc.addPage('a4', 'portrait'); PW = 210; PH = 297; CW = PW - 2 * M; y = M; }
-      T(`Alimentación: pin 14 de cada integrado a +5 V y pin 7 a GND. Cada interruptor lleva su entrada a +5 V en ON; una resistencia de ${S.series === 'hc' ? '10 kOhm' : '1 kOhm'} la lleva a GND en OFF. El LED de salida va en serie con 330 Ohm a GND.`, 9.5);
+      const hcR = S.series === 'hc';
+      const swTxt = S.pull === 'up'
+        ? `Cada interruptor lleva su entrada a GND en ON (0 lógico); una resistencia pull-up de ${hcR ? '10 kOhm' : '4,7 kOhm'} la lleva a +5 V cuando está abierto (1 lógico). Con pull-up, ON significa 0.`
+        : `Cada interruptor lleva su entrada a +5 V en ON (1 lógico); una resistencia pull-down de ${hcR ? '10 kOhm' : '1 kOhm'} la lleva a GND en OFF (0 lógico).`;
+      T(`Alimentación: pin 14 de cada integrado a +5 V y pin 7 a GND. ${swTxt} El LED de salida va en serie con 330 Ohm a GND.`, 9.5);
       const hole = e => `${e.row}${e.col}`;
       TABLE(['#', 'Señal', 'Desde', 'Hasta', 'ok'], [
         ...bo.B.wires.map((w, i) => [String(i + 1), w.name, `${hole(w.a)} ${w.a.desc}`, `${hole(w.b)} ${w.b.desc}`, '[ ]']),

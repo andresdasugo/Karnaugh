@@ -1,0 +1,22 @@
+{
+  "name": "laboratorio-karnaugh",
+  "version": "5.0.0",
+  "private": true,
+  "description": "Laboratorio Karnaugh: simplifica, entiende y arma funciones lógicas con mapas de Karnaugh en el navegador.",
+  "license": "MIT",
+  "author": "andresdasugo",
+  "homepage": "https://andresdasugo.github.io/Karnaugh/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andresdasugo/Karnaugh.git"
+  },
+  "keywords": ["karnaugh", "boolean-algebra", "logic", "quine-mccluskey", "digital-electronics", "education"],
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test \"tests/*.test.mjs\"",
+    "start": "npx --yes http-server@14.1.1 . -p 8080 -c-1"
+  }
+}

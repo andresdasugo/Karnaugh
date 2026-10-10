@@ -4,6 +4,14 @@ Todas las versiones importantes del Laboratorio Karnaugh. El formato sigue
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [5.0.1] - 2026-10-10
+
+### Corregido
+- Informe PDF: la sección de protoboard ahora describe la conexión de los
+  interruptores según la opción elegida (pull-up o pull-down) y el valor de
+  resistencia correspondiente a la serie 74LS o 74HC. Antes siempre describía
+  pull-down.
+
 ## [5.0.0] - 2026-10-10
 
 Primera versión publicada en este repositorio.
@@ -40,4 +48,5 @@ Primera versión publicada en este repositorio.
 - Versiones iniciales: calculadora de mapas de Karnaugh, paso a paso, circuito,
   protoboard, teoría e informe en PDF.
 
+[5.0.1]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.0.1
 [5.0.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.0.0

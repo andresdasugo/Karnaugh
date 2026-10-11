@@ -4,6 +4,26 @@ Todas las versiones importantes del Laboratorio Karnaugh. El formato sigue
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [5.1.2] - 2026-10-11
+
+### Cambiado
+- «Implicante principal» pasa a llamarse **grupo máximo**, y «implicante
+  principal esencial», **grupo esencial**, en toda la aplicación y el PDF.
+  El glosario recuerda que en los libros se llaman «implicante primo» e
+  «implicante».
+- Los grupos de la tabla de Quine–McCluskey y del método de Petrick se
+  rotulan G1, G2… (antes P1, P2…, que se confundían con el producto P de
+  Petrick).
+
+### Corregido
+- Teoría y glosario aclaran que «máximo» no significa «el más grande del
+  mapa»: un par también es máximo si no puede crecer.
+- Paso a paso y Teoría decían que un grupo es esencial si es «el grupo más
+  grande» que se puede formar con un uno; ahora dicen correctamente que es
+  esencial si ese uno solo cabe en un grupo máximo.
+- Quine–McCluskey: los términos que no se combinan *corresponden* a los
+  grupos máximos del mapa (antes se decía que *son* implicantes).
+
 ## [5.1.1] - 2026-10-11
 
 ### Cambiado
@@ -84,6 +104,7 @@ Primera versión publicada en este repositorio.
 - Versiones iniciales: calculadora de mapas de Karnaugh, paso a paso, circuito,
   protoboard, teoría e informe en PDF.
 
+[5.1.2]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.1.2
 [5.1.1]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.1.1
 [5.1.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.1.0
 [5.0.1]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.0.1

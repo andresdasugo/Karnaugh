@@ -4,6 +4,24 @@ Todas las versiones importantes del Laboratorio Karnaugh. El formato sigue
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [5.1.0] - 2026-10-11
+
+### Cambiado
+- Práctica: el programa ya no muestra el término de cada grupo ni la ecuación
+  armada con los grupos del estudiante. Al agregar un grupo solo confirma que es
+  válido y lista sus celdas; el estudiante escribe los términos y la ecuación
+  final. Los términos aparecen cuando su ecuación es correcta o cuando pide la
+  solución.
+- Práctica: los avisos «primo» / «se puede agrandar» se muestran al pulsar
+  «Revisar», que ahora señala los grupos por sus celdas.
+
+### Corregido
+- Práctica: «Comprobar» decía «no mínima» comparando con la otra forma (SOP o
+  POS); ahora compara con la forma que se practica y menciona la otra solo como
+  dato.
+- Práctica: el botón «Ver solución» / «Ocultar solución» quedaba con el texto
+  equivocado al tocar el mapa o agregar un grupo.
+
 ## [5.0.1] - 2026-10-10
 
 ### Corregido
@@ -48,5 +66,6 @@ Primera versión publicada en este repositorio.
 - Versiones iniciales: calculadora de mapas de Karnaugh, paso a paso, circuito,
   protoboard, teoría e informe en PDF.
 
+[5.1.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.1.0
 [5.0.1]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.0.1
 [5.0.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.0.0

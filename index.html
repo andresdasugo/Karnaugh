@@ -6,7 +6,7 @@
 <title>Laboratorio Karnaugh</title>
 <meta name="description" content="Simplifica funciones lógicas con mapas de Karnaugh de 2 a 6 variables: SOP y POS mínimas, paso a paso con Quine–McCluskey, práctica, circuitos de varias salidas, protoboard, teoría e informe en PDF.">
 <meta name="application-name" content="Laboratorio Karnaugh">
-<meta name="version" content="5.0.1">
+<meta name="version" content="5.1.0">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Laboratorio Karnaugh">
 <meta property="og:description" content="Simplifica, entiende y arma funciones lógicas con mapas de Karnaugh, directamente en el navegador.">
@@ -766,7 +766,8 @@ table.cost td.best{color:var(--ok-t)}
       <ol class="clean">
         <li>Toca las celdas que forman un grupo y pulsa «Agregar grupo».</li>
         <li>Repite hasta cubrir todos los unos (o los ceros, si trabajas en POS).</li>
-        <li>Pulsa «Revisar» para ver tu puntaje. Luego escribe la ecuación y compruébala.</li>
+        <li>Pulsa «Revisar» para ver tu puntaje.</li>
+        <li>Escribe tú el término de cada grupo y arma la ecuación final. El programa no la muestra: compruébala con el botón «Comprobar».</li>
       </ol>
       <div class="score" id="pScore" hidden></div>
     </div>
@@ -3552,7 +3553,7 @@ function thChip() {
 }
 
 /* ===================== Práctica ===================== */
-const PR = { n: 4, form: 'sop', x: false, vals: null, names: DEF_NAMES.slice(), sel: new Set(), groups: [], showSol: false, checked: null };
+const PR = { n: 4, form: 'sop', x: false, vals: null, names: DEF_NAMES.slice(), sel: new Set(), groups: [], showSol: false, checked: false, reveal: false };
 const prTarget = () => PR.form === 'pos' ? 0 : 1;
 function prLit(l) { const t = esc(PR.names[l.v]); return l.neg ? (S.notation === 'bar' ? `<span class="ov">${t}</span>` : t + '′') : t; }
 function prTerm(p) {
@@ -3571,7 +3572,9 @@ function prNew() {
   } while (t < 3 || t > N - 3);
   PR.vals = v; PR.names = DEF_NAMES.slice(); prReset();
 }
-function prReset() { PR.sel = new Set(); PR.groups = []; PR.showSol = false; PR.checked = null; $('#pFeedback').innerHTML = ''; $('#pExprFb').innerHTML = ''; $('#pExpr').value = ''; $('#pScore').hidden = true; renderPractice(); }
+function prReset() { PR.sel = new Set(); PR.groups = []; prShowSol(false); PR.checked = false; PR.reveal = false; $('#pFeedback').innerHTML = ''; $('#pExprFb').innerHTML = ''; $('#pExpr').value = ''; $('#pScore').hidden = true; renderPractice(); }
+/* la solución dibujada en el mapa; el botón siempre refleja si está visible */
+function prShowSol(on) { PR.showSol = on; if (on) PR.reveal = true; $('#pSolve').textContent = on ? 'Ocultar solución' : 'Ver solución'; }
 function prSolution() { return K.minimize(PR.n, PR.vals, PR.form === 'pos'); }
 function renderPractice() {
   if (!PR.vals) prNew();
@@ -3583,8 +3586,10 @@ function renderPractice() {
   $('#pMap').innerHTML = drawMap({ n: PR.n, vals: PR.vals, names: PR.names.slice(0, PR.n), cs: PR.n >= 5 ? 44 : 56, interactive: true, groups, sel: PR.sel, selRing: true, tr: S.tr, mirror: S.mirror });
   fitMap($('#pMap'), PR.n);
   $('#pInfo').textContent = PR.showSol ? 'Mostrando la solución' : `${left} de ${req.length} ${PR.form === 'pos' ? 'ceros' : 'unos'} sin cubrir`;
-  $('#pGroups').innerHTML = PR.groups.length ? `<h3>Tus grupos</h3>` + PR.groups.map((g, i) => `<div class="pgroup" style="color:${gcol(i)}"><span class="sw"></span><span><b>${prTerm(g.p)}</b> <span class="meta">${PR.form === 'pos' ? 'M' : 'm'}(${g.p.cov.join(',')})</span></span><span class="pill ${g.prime ? 'ok' : ''}">${g.prime ? 'primo' : 'se puede agrandar'}</span><button class="btn sm x" data-pdel="${i}" aria-label="Quitar grupo">✕</button></div>`).join('')
-    + `<div class="expr sm" style="margin-top:8px">F = ${prExpr(PR.groups.map(g => g.p))}</div>` : '';
+  const M = PR.form === 'pos' ? 'M' : 'm';
+  $('#pGroups').innerHTML = PR.groups.length ? `<h3>Tus grupos</h3>` + PR.groups.map((g, i) => `<div class="pgroup" style="color:${gcol(i)}"><span class="sw"></span><span><b>Grupo ${i + 1}</b> <span class="meta">${M}(${g.p.cov.join(',')})</span>${PR.reveal ? ` → <b>${prTerm(g.p)}</b>` : ''}</span>${PR.checked ? `<span class="pill ${g.prime ? 'ok' : ''}">${g.prime ? 'primo' : 'se puede agrandar'}</span>` : ''}<button class="btn sm x" data-pdel="${i}" aria-label="Quitar grupo">✕</button></div>`).join('')
+    + (PR.reveal ? `<div class="expr sm" style="margin-top:8px">Con tus grupos: F = ${prExpr(PR.groups.map(g => g.p))}</div>`
+      : `<p class="hint">Escribe el término de cada grupo y la ecuación final abajo. Los términos aparecen aquí cuando tu ecuación sea correcta o cuando pidas la solución.</p>`) : '';
 }
 function prAdd() {
   const cells = [...PR.sel].sort((a, b) => a - b), fb = $('#pFeedback');
@@ -3596,9 +3601,9 @@ function prAdd() {
     fb.innerHTML = `<span class="bad">No es un grupo válido.</span> ${msg}`; return;
   }
   if (PR.groups.some(g => g.p.v === info.p.v && g.p.m === info.p.m)) { fb.innerHTML = '<span class="bad">Ya tienes ese grupo.</span>'; return; }
-  PR.groups.push({ p: info.p, prime: info.prime });
-  PR.sel = new Set(); PR.showSol = false;
-  fb.innerHTML = info.prime ? `<span class="ok">Grupo agregado: ${prTerm(info.p)}.</span> Es un implicante primo.` : `<span class="ok">Grupo agregado: ${prTerm(info.p)}.</span> Ojo: se puede agrandar incluyendo ${info.grow[0].map(c => 'm' + c).join(', ')}, y así tendría un literal menos.`;
+  PR.groups.push({ p: info.p, prime: info.prime, grow: info.grow[0] || [] });
+  PR.sel = new Set(); prShowSol(false); PR.checked = false;
+  fb.innerHTML = `<span class="ok">Grupo ${PR.groups.length} agregado:</span> ${cells.length} celda${cells.length > 1 ? 's' : ''}, ${PR.form === 'pos' ? 'M' : 'm'}(${info.p.cov.join(',')}). ¿Qué variables cambian dentro del grupo y cuáles permanecen?`;
   renderPractice();
 }
 function prCheck() {
@@ -3615,13 +3620,15 @@ function prCheck() {
   if (!miss.length) score += Math.max(0, 25 - 8 * Math.max(0, PR.groups.length - minG)) + Math.max(0, 25 - 4 * Math.max(0, lits - minL));
   const it = (ok, t) => `<li style="list-style:none;margin-left:-18px">${ok ? '✓' : '✗'} ${t}</li>`;
   const W = PR.form === 'pos' ? { ones: 'ceros', M: 'M' } : { ones: 'unos', M: 'm' };
+  const gref = g => `${PR.reveal ? prTerm(g.p) : 'grupo ' + (PR.groups.indexOf(g) + 1)} ${W.M}(${g.p.cov.join(',')})`;
+  PR.checked = true; renderPractice();
   $('#pScore').hidden = false;
   $('#pScore').innerHTML = `<div class="row" style="align-items:baseline;gap:10px"><b class="big">${score}</b><span class="meta">de 100</span></div>
     <ul class="clean">${it(!miss.length, miss.length ? `Faltan por cubrir: ${miss.map(c => W.M + c).join(', ')}` : `Todos los ${W.ones} están cubiertos`)}
     ${it(PR.groups.length <= minG && !miss.length, `Grupos: ${PR.groups.length} (el mínimo es ${minG})`)}
     ${it(lits <= minL && !miss.length, `Literales: ${lits} (el mínimo es ${minL})`)}
-    ${redundant.length ? it(false, `Grupos que sobran: ${redundant.map(g => prTerm(g.p)).join(', ')}`) : ''}
-    ${nonPrime.length ? it(false, `Grupos que podían ser más grandes: ${nonPrime.map(g => prTerm(g.p)).join(', ')}`) : ''}</ul>
+    ${redundant.length ? it(false, `Grupos que sobran: ${redundant.map(gref).join('; ')}`) : ''}
+    ${nonPrime.length ? it(false, `Grupos que podían ser más grandes: ${nonPrime.map(g => `${gref(g)}, incluyendo también ${g.grow.map(c => W.M + c).join(', ')}`).join('; ')}`) : ''}</ul>
     ${score === 100 ? '<p><b style="color:var(--ok)">¡Solución mínima! Excelente.</b></p>' : '<p class="hint">Corrige y vuelve a revisar, o pulsa «Ver solución» para comparar.</p>'}`;
   $('#pScore').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -3635,10 +3642,14 @@ function prExprCheck() {
     const L = countLits(ast);
     const ms = K.minimize(PR.n, PR.vals, false), mp = K.minimize(PR.n, PR.vals, true);
     const lc = r => r.constant !== undefined ? 0 : r.terms.reduce((s, p) => s + PR.n - K.popcount(p.m), 0);
-    const minL = Math.min(lc(ms), lc(mp));
+    // mínimo de la forma que se está practicando; la otra forma solo se menciona como dato
+    const pos = PR.form === 'pos', minL = lc(pos ? mp : ms), otherL = lc(pos ? ms : mp);
+    const otherNote = otherL < minL ? ` Dato: como ${pos ? 'suma de productos' : 'producto de sumas'} se puede escribir con ${otherL}.` : '';
     if (bad.length) { const i = bad[0]; fb.innerHTML = `<span class="bad">No coincide con la función.</span> En la fila ${i} (${K.bin(i, PR.n)}) tu ecuación da ${v[i]} y la función vale ${PR.vals[i]}${bad.length > 1 ? `; hay ${bad.length} filas distintas` : ''}.`; }
-    else if (L <= minL) fb.innerHTML = `<span class="ok">¡Correcta y mínima!</span> ${L} literales.`;
-    else fb.innerHTML = `<span class="ok">Correcta</span>, pero no mínima: tiene ${L} literales y se puede escribir con ${minL}.`;
+    else {
+      fb.innerHTML = (L <= minL ? `<span class="ok">¡Correcta y mínima!</span> ${L} literales.` : `<span class="ok">Correcta</span>, pero no mínima: tiene ${L} literales y se puede escribir con ${minL}.`) + otherNote;
+      if (PR.groups.length && !PR.reveal) { PR.reveal = true; renderPractice(); fb.innerHTML += ' Compara tu ecuación con los términos de tus grupos, arriba.'; }
+    }
   } catch (err) { fb.innerHTML = `<span class="bad">${esc(err.message)}</span>`; }
 }
 function bindPractice() {
@@ -3653,16 +3664,15 @@ function bindPractice() {
     $$('#pForm button').forEach(x => x.setAttribute('aria-pressed', x.dataset.pf === PR.form));
     prReset(); toast('Practicando con la función de la calculadora');
   });
-  $('#pMap').addEventListener('click', e => { const c = e.target.closest('.kcell'); if (!c) return; const i = +c.dataset.i; PR.sel.has(i) ? PR.sel.delete(i) : PR.sel.add(i); PR.showSol = false; renderPractice(); });
+  $('#pMap').addEventListener('click', e => { const c = e.target.closest('.kcell'); if (!c) return; const i = +c.dataset.i; PR.sel.has(i) ? PR.sel.delete(i) : PR.sel.add(i); prShowSol(false); renderPractice(); });
   $('#pAdd').addEventListener('click', prAdd);
   $('#pClearSel').addEventListener('click', () => { PR.sel = new Set(); renderPractice(); });
   $('#pCheck').addEventListener('click', prCheck);
   $('#pSolve').addEventListener('click', () => {
-    PR.showSol = !PR.showSol; renderPractice();
-    $('#pSolve').textContent = PR.showSol ? 'Ocultar solución' : 'Ver solución';
+    prShowSol(!PR.showSol); renderPractice();
     if (PR.showSol) { const s = prSolution(); $('#pFeedback').innerHTML = `Solución mínima (grupos punteados): F = ${s.constant !== undefined ? s.constant : prExpr(s.terms)}`; }
   });
-  $('#pGroups').addEventListener('click', e => { const b = e.target.closest('[data-pdel]'); if (b) { PR.groups.splice(+b.dataset.pdel, 1); renderPractice(); } });
+  $('#pGroups').addEventListener('click', e => { const b = e.target.closest('[data-pdel]'); if (b) { PR.groups.splice(+b.dataset.pdel, 1); PR.checked = false; renderPractice(); } });
   $('#pExprCheck').addEventListener('click', prExprCheck);
   $('#pExpr').addEventListener('keydown', e => { if (e.key === 'Enter') prExprCheck(); });
 }

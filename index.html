@@ -6,7 +6,7 @@
 <title>Laboratorio Karnaugh</title>
 <meta name="description" content="Simplifica funciones lógicas con mapas de Karnaugh de 2 a 6 variables: SOP y POS mínimas, paso a paso con Quine–McCluskey, práctica, circuitos de varias salidas, protoboard, teoría e informe en PDF.">
 <meta name="application-name" content="Laboratorio Karnaugh">
-<meta name="version" content="5.1.0">
+<meta name="version" content="5.1.1">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Laboratorio Karnaugh">
 <meta property="og:description" content="Simplifica, entiende y arma funciones lógicas con mapas de Karnaugh, directamente en el navegador.">
@@ -571,6 +571,20 @@ table.cost td.best{color:var(--ok-t)}
 .hero-eq.l{font-size:clamp(26px,2.4vw,36px)}
 .hero-eq.xl{font-size:clamp(22px,1.9vw,29px);line-height:1.45}
 @media (max-width:860px){.hero-eq.l{font-size:26px}.hero-eq.xl{font-size:22px}}
+
+/* menú superior: ninguna pestaña puede quedar escondida detrás del título.
+   Si no cabe junto al título, pasa a su propia fila (clase .stack, la pone fitTabs). */
+@media (min-width:861px){
+  .tabs{justify-content:flex-start}
+  .tabs > .tab:first-child{margin-left:auto}
+  .top.stack .top-in{flex-wrap:wrap;row-gap:2px;align-items:center}
+  .top.stack .tabs{order:3;flex-basis:100%;flex-wrap:wrap;overflow:visible;margin:0 -10px}
+  .top.stack .tabs > .tab:first-child{margin-left:0}
+  .top.stack .theme-btn{margin-left:auto}
+  html{scroll-padding-top:calc(var(--top-h,100px) + 12px)}
+  .toc{top:calc(var(--top-h,100px) + 12px)}
+  .th-sec{scroll-margin-top:0}
+}
 
 </style>
 </head>
@@ -2344,14 +2358,14 @@ function petrickHTML(M) {
   const prodTxt = factors.map(f => '(' + f.map(P).join(' + ') + ')').join('');
   const exp = K.petrickExpand(factors, 24);
   const lit = i => S.n - K.popcount(r.primes[i].m);
-  let h = `<p>Con el método de Petrick cada ${W.mt} pendiente exige al menos uno de sus primos (la suma) y todos deben cumplirse a la vez (el producto):</p>
+  let h = `<p>Con el método de Petrick cada ${W.mt} pendiente exige al menos uno de sus implicantes principales (la suma) y todos deben cumplirse a la vez (el producto):</p>
     <div class="expr sm" style="overflow-x:auto">P = ${factors.length > 20 ? prodTxt.slice(0, 400) + '…' : prodTxt}</div>`;
   if (exp && exp.length <= 16) {
     h += `<p>Al multiplicar y simplificar con la absorción (X + XY = X):</p><div class="expr sm" style="overflow-x:auto">P = ${exp.map(t => t.map(P).join('·')).join(' + ')}</div>`;
     const minLen = exp[0].length;
     const cands = exp.filter(t => t.length === minLen).map(t => ({ t, l: t.reduce((s, i) => s + lit(i), 0) })).sort((a, b) => a.l - b.l);
-    h += `<p>Cada producto es una forma válida de completar la cobertura. Los más cortos usan ${minLen} primo${minLen > 1 ? 's' : ''}: ${cands.map(c => `${c.t.map(P).join('·')} (${c.l} literales)`).join(', ')}. Se elige el de menos literales${cands.length > 1 && cands[0].l === cands[1].l ? '; hay empate, así que existen soluciones equivalentes' : ''}.</p>`;
-  } else h += `<p>La expansión completa es muy larga para mostrarla; el programa la recorre con búsqueda exhaustiva y elige la combinación con menos primos y, entre ellas, con menos literales.</p>`;
+    h += `<p>Cada producto es una forma válida de completar la cobertura. Los más cortos usan ${minLen} implicante${minLen > 1 ? 's' : ''} principal${minLen > 1 ? 'es' : ''}: ${cands.map(c => `${c.t.map(P).join('·')} (${c.l} literales)`).join(', ')}. Se elige el de menos literales${cands.length > 1 && cands[0].l === cands[1].l ? '; hay empate, así que existen soluciones equivalentes' : ''}.</p>`;
+  } else h += `<p>La expansión completa es muy larga para mostrarla; el programa la recorre con búsqueda exhaustiva y elige la combinación con menos implicantes principales y, entre ellas, con menos literales.</p>`;
   return h;
 }
 function stepsVisual(step, M) {
@@ -2393,29 +2407,29 @@ function stepsQM(step, M) {
     terms.forEach(t => { const c = K.popcount(t.v); (groups[c] = groups[c] || []).push(t); });
     let rows = '';
     Object.keys(groups).sort((a, b) => a - b).forEach(g => groups[g].forEach((t, j) => {
-      rows += `<tr class="${t.used ? '' : 'unused'} ${j === 0 ? 'gs' : ''}"><td>${j === 0 ? g : ''}</td><td class="l">${covTxt(W.M, t.cov)}${k === 0 && d.includes(t.v) ? ' <span class="meta">(d)</span>' : ''}</td><td>${K.pattern(S.n, t)}</td><td>${t.used ? '✓' : '<b>primo</b>'}</td></tr>`;
+      rows += `<tr class="${t.used ? '' : 'unused'} ${j === 0 ? 'gs' : ''}"><td>${j === 0 ? g : ''}</td><td class="l">${covTxt(W.M, t.cov)}${k === 0 && d.includes(t.v) ? ' <span class="meta">(d)</span>' : ''}</td><td>${K.pattern(S.n, t)}</td><td>${t.used ? '✓' : '<b>principal</b>'}</td></tr>`;
     }));
     return `<div class="chart-wrap"><div class="meta" style="font-weight:600">${k === 0 ? 'Términos individuales' : `Combinaciones de ${1 << k} celdas`}</div><table class="qm"><tr><th>N.º de 1</th><th>${W.M}</th><th>${S.names.slice(0, S.n).map(esc).join('')}</th><th></th></tr>${rows}</table></div>`;
   };
   step('Ordenar por cantidad de unos en binario', `<div class="prose"><p>Se escribe cada ${W.mt} (y cada X) en binario y se agrupa según cuántos 1 tiene. Solo pueden combinarse términos de grupos vecinos, porque difieren en un bit.</p></div>${qmTable(it[0], 0)}`);
-  step('Combinar términos que difieren en un bit', `<div class="prose"><p>Cada par que difiere en una sola posición se une y esa posición se marca con «–»: la variable desaparece. Por ejemplo, ${it[1] && it[1][0] ? `${covTxt(W.M, it[1][0].cov)} da ${K.pattern(S.n, it[1][0])}` : '0101 y 0111 dan 01–1'}. Se repite con los nuevos términos hasta que no se pueda combinar más. Los que no lograron combinarse (filas resaltadas) son <b>implicantes primos</b>.</p></div>
+  step('Combinar términos que difieren en un bit', `<div class="prose"><p>Cada par que difiere en una sola posición se une y esa posición se marca con «–»: la variable desaparece. Por ejemplo, ${it[1] && it[1][0] ? `${covTxt(W.M, it[1][0].cov)} da ${K.pattern(S.n, it[1][0])}` : '0101 y 0111 dan 01–1'}. Se repite con los nuevos términos hasta que no se pueda combinar más. Los que no lograron combinarse (filas resaltadas) son <b>implicantes principales</b>.</p></div>
     <div class="qm-scroll">${it.slice(1).map((t, k) => qmTable(t, k + 1)).join('') || '<p class="meta">Ningún par se pudo combinar.</p>'}</div>`);
   const P = r.primes, chosen = new Set(res.terms.map(t => P.indexOf(t)));
   const ess = new Set(r.cover.essentials);
-  step('Lista de implicantes primos', `<div class="flex2"><div class="chart-wrap" style="flex:1;min-width:280px"><table class="qm"><tr><th>Primo</th><th>Cubre</th><th>Patrón</th><th>Término</th></tr>
+  step('Lista de implicantes principales', `<div class="flex2"><div class="chart-wrap" style="flex:1;min-width:280px"><table class="qm"><tr><th>Implicante</th><th>Cubre</th><th>Patrón</th><th>Término</th></tr>
     ${P.map((p, i) => `<tr class="${chosen.has(i) ? 'unused' : ''}" data-pg="${i}" style="cursor:default"><td><b>P${i + 1}</b></td><td class="l">${covTxt(W.M, p.cov)}</td><td>${K.pattern(S.n, p)}</td><td class="l">${termH(p, pos)}</td></tr>`).join('')}</table>
-    <p class="hint">Pasa el cursor por una fila para ver el primo en el mapa. Resaltados: los que forman la solución.</p></div>
+    <p class="hint">Pasa el cursor por una fila para ver el implicante en el mapa. Resaltados: los que forman la solución.</p></div>
     <div class="mapwrap">${drawMap({ n: S.n, vals: S.vals, names: S.names.slice(0, S.n), tr: S.tr, mirror: S.mirror, cs: 40, groups: P.map((p, i) => ({ p, color: gcol(i), k: i })) })}</div></div>`);
   const cols = pos ? M.z : M.o;
-  const chart = `<div class="chart-wrap"><table class="chart"><tr><th class="l">Primo</th>${cols.map(c => `<th>${c}</th>`).join('')}</tr>
+  const chart = `<div class="chart-wrap"><table class="chart"><tr><th class="l">Implicante</th>${cols.map(c => `<th>${c}</th>`).join('')}</tr>
     ${P.map((p, i) => `<tr class="${ess.has(i) ? 'ess' : ''}"><td class="l"><b>P${i + 1}</b>${ess.has(i) ? ' ★' : ''} ${termH(p, pos)}</td>${cols.map(c => {
       const has = p.cov.includes(c), only = has && r.cover.covers.get(c).length === 1;
       return `<td class="${only ? 'only' : has ? 'cov' : ''}">${only ? '⊗' : has ? '×' : ''}</td>`;
     }).join('')}</tr>`).join('')}</table></div>`;
-  step('Tabla de cobertura', `<div class="prose"><p>Las columnas son los ${W.mts} que hay que cubrir (las X no entran). Una columna con una sola marca (⊗) obliga a usar ese primo: es un <b>implicante primo esencial</b> (★).</p></div>${chart}`);
+  step('Tabla de cobertura', `<div class="prose"><p>Las columnas son los ${W.mts} que hay que cubrir (las X no entran). Una columna con una sola marca (⊗) obliga a usar ese implicante: es un <b>implicante principal esencial</b> (★).</p></div>${chart}`);
   let sel = '<div class="prose">';
   if (ess.size) sel += `<p>Esenciales:</p><ul class="clean">${[...ess].map(i => { const only = P[i].cov.filter(c => r.cover.covers.get(c) && r.cover.covers.get(c).length === 1); return `<li><b>P${i + 1}</b> = ${termH(P[i], pos)}: es el único que cubre ${only.map(c => W.M + c).join(' y ')}.</li>`; }).join('')}</ul>`;
-  else sel += '<p>No hay implicantes primos esenciales: ninguna columna tiene una sola marca.</p>';
+  else sel += '<p>No hay implicantes principales esenciales: ninguna columna tiene una sola marca.</p>';
   if (r.cover.remaining.length) sel += `<p>Después de los esenciales quedan sin cubrir ${covTxt(W.M, r.cover.remaining)}.</p>` + petrickHTML(M);
   else sel += `<p>Los esenciales ya cubren todos los ${W.mts}: la solución queda determinada.</p>`;
   sel += '</div>';
@@ -3088,7 +3102,7 @@ function bindCircuitBoard() {
 }
 
 /* ===================== Teoría ===================== */
-const TH = { tt: [0, 1, 0, 1, 1, 1, 0, 0], gb: 3, adjN: 4, adjSel: 5, prim: 'primos', xUse: true, chip: '74LS00', uni: 'nand',
+const TH = { tt: [0, 1, 0, 1, 1, 1, 0, 0], gb: 3, adjN: 4, adjSel: 5, prim: 'principales', xUse: true, chip: '74LS00', uni: 'nand',
   intro: 6, alg: 0, vf: null, vsel: new Set(), quiz: {}, ej: 0 };
 const TN = ['A', 'B', 'C', 'D', 'E', 'F'];
 const secs = [
@@ -3098,7 +3112,7 @@ const secs = [
   ['t-gray', 'Código Gray'],
   ['t-adj', 'Celdas adyacentes'],
   ['t-grupos', 'Reglas para formar grupos'],
-  ['t-primos', 'Implicantes primos y esenciales'],
+  ['t-principales', 'Implicantes principales y esenciales'],
   ['t-x', 'Condiciones de no importa'],
   ['t-pos', 'Agrupar ceros: producto de sumas'],
   ['t-56', 'Mapas de 5 y 6 variables'],
@@ -3134,7 +3148,7 @@ const QUIZ = [
   ['¿Puede un grupo tener 6 celdas?', ['Sí, si es un rectángulo', 'No, debe ser una potencia de 2'], 1, 'Los grupos tienen 1, 2, 4, 8 o 16 celdas; con 6 no se elimina un número entero de variables.'],
   ['m5 en una función de 3 variables (A, B, C) es…', [`A${OV('B')}C`, `${OV('A')}B${OV('C')}`, `(${OV('A')} + B + ${OV('C')})`], 0, '5 = 101: A = 1, B = 0, C = 1. En el mintérmino se niegan las variables que valen 0.'],
   ['M2 en una función de 3 variables es…', [`${OV('A')}B${OV('C')}`, `(A + ${OV('B')} + C)`, `(${OV('A')} + B + ${OV('C')})`], 1, '2 = 010. En el maxitérmino se niegan las variables que valen 1, así que solo B va negada.'],
-  ['Un implicante primo esencial es aquel que…', ['tiene más celdas que los demás', 'cubre algún 1 que ningún otro primo cubre', 'contiene al menos una X'], 1, 'Por eso aparece sí o sí en la solución mínima, sin importar su tamaño.'],
+  ['Un implicante principal esencial es aquel que…', ['tiene más celdas que los demás', 'cubre algún 1 que ningún otro implicante principal cubre', 'contiene al menos una X'], 1, 'Por eso aparece sí o sí en la solución mínima, sin importar su tamaño.'],
   ['En un grupo de ceros donde A vale 1 en todas las celdas, A aparece en la suma como…', ['A', `${OV('A')}`, 'No aparece'], 1, 'En la POS se niega la variable que vale 1: el término suma vale 0 justo en esas celdas.'],
   ['¿Cuántas celdas vecinas tiene cada celda de un mapa de 5 variables?', ['4', '5', '8'], 1, 'Tantas como variables: una por cada bit que se puede cambiar.'],
   ['Una compuerta NAND con sus dos entradas unidas funciona como…', ['AND', 'inversor (NOT)', 'OR'], 1, 'NAND(A, A) = negación de A·A, que es la negación de A.'],
@@ -3151,8 +3165,8 @@ const GLOS = [
   ['Código Gray', 'Secuencia binaria en la que dos valores consecutivos difieren en un solo bit.'],
   ['Adyacencia', 'Dos celdas son adyacentes si sus combinaciones difieren en una sola variable.'],
   ['Implicante', 'Cualquier grupo válido de unos (y X).'],
-  ['Implicante primo', 'Implicante que no puede agrandarse sin incluir un cero.'],
-  ['Implicante primo esencial', 'Primo que cubre al menos un 1 que ningún otro primo cubre.'],
+  ['Implicante principal', 'Implicante que no puede agrandarse sin incluir un cero. En otros libros se llama «implicante primo».'],
+  ['Implicante principal esencial', 'Implicante principal que cubre al menos un 1 que ningún otro cubre.'],
   ['Cobertura', 'Conjunto de grupos que, juntos, incluyen todos los unos.'],
   ['Condición de no importa (X, d)', 'Combinación que nunca ocurre o cuya salida es indiferente; se usa como comodín.'],
   ['Riesgo estático (hazard)', 'Pulso falso breve en la salida al cambiar una entrada, causado por los retardos.'],
@@ -3208,12 +3222,12 @@ function renderTheory() {
       <div class="row" style="margin-bottom:8px"><button class="btn sm" id="thVNew">Otra función</button><button class="btn sm" id="thVClr">Limpiar selección</button></div>
       <div class="flex2"><div class="mapwrap" id="thGrp"></div><div id="thGrpTxt" style="flex:1;min-width:240px"></div></div></div>`)}
 
-  ${sec('t-primos', 'Implicantes primos y esenciales', `<div class="prose">
-    <p>Un <b>implicante</b> es cualquier grupo válido de unos. Es <b>primo</b> si no se puede agrandar más sin incluir un cero. Es <b>esencial</b> si cubre al menos un 1 que ningún otro primo cubre: entonces aparece obligatoriamente en la solución mínima.</p>
-    <p>La receta: tomar primero todos los esenciales; si quedan unos sin cubrir, completar con los primos que cubran más con menos literales.</p></div>
+  ${sec('t-principales', 'Implicantes principales y esenciales', `<div class="prose">
+    <p>Un <b>implicante</b> es cualquier grupo válido de unos. Es <b>principal</b> si no se puede agrandar más sin incluir un cero. Es <b>esencial</b> si cubre al menos un 1 que ningún otro implicante principal cubre: entonces aparece obligatoriamente en la solución mínima.</p>
+    <p>La receta: tomar primero todos los esenciales; si quedan unos sin cubrir, completar con los implicantes principales que cubran más con menos literales.</p></div>
     <div class="demo"><div class="demo-t mxline">${mxF()} = ${mxList('m', [0, 1, 2, 5, 6, 7, 8, 9, 10, 14])}</div>
       <div class="seg" id="thPrimSeg" style="margin-bottom:10px">
-        <button data-pm="primos" aria-pressed="true">Todos los primos</button><button data-pm="esenciales" aria-pressed="false">Solo esenciales</button><button data-pm="minima" aria-pressed="false">Cobertura mínima</button></div>
+        <button data-pm="principales" aria-pressed="true">Todos los principales</button><button data-pm="esenciales" aria-pressed="false">Solo esenciales</button><button data-pm="minima" aria-pressed="false">Cobertura mínima</button></div>
       <div class="flex2"><div class="mapwrap" id="thPrim"></div><div id="thPrimTxt" style="flex:1;min-width:240px"></div></div></div>`)}
 
   ${sec('t-x', 'Condiciones de no importa', `<div class="prose">
@@ -3238,16 +3252,16 @@ function renderTheory() {
     <div class="demo"><div class="demo-t">m5 y sus vecinas en 5 variables</div><div class="mapwrap" id="th56"></div><p class="hint">Las letras marcan qué variable cambia. m21 está en el otro mapa, en la misma posición.</p></div></div>`)}
 
   ${sec('t-ej', `Ejemplo resuelto: <span class="mxline">${mxF()} = ${mxList('m', [1, 5, 6, 7, 11, 12, 13, 15])}</span>`, `<div class="prose"><p>Un ejemplo con trampa: el grupo más grande del mapa no forma parte de la solución.</p></div>
-    <div class="row" style="margin:8px 0"><div class="seg" id="thEjSeg">${['1. Valores', '2. Primos', '3. Esenciales', '4. Resultado'].map((t, i) => `<button data-ej="${i}" aria-pressed="${i === TH.ej}">${t}</button>`).join('')}</div><button class="btn sm" id="thEjLoad">Abrir en la calculadora</button></div>
+    <div class="row" style="margin:8px 0"><div class="seg" id="thEjSeg">${['1. Valores', '2. Principales', '3. Esenciales', '4. Resultado'].map((t, i) => `<button data-ej="${i}" aria-pressed="${i === TH.ej}">${t}</button>`).join('')}</div><button class="btn sm" id="thEjLoad">Abrir en la calculadora</button></div>
     <div class="flex2"><div class="mapwrap" id="thEjMap"></div><div class="prose" id="thEjTxt" style="flex:1;min-width:260px"></div></div>`)}
 
   ${sec('t-qm', 'Quine–McCluskey y Petrick', `<div class="prose">
     <p>Con muchas variables el ojo se equivoca; por eso esta calculadora usa el método tabular de Quine–McCluskey, que hace lo mismo que el mapa de forma sistemática:</p>
     <ol class="clean"><li>Se listan los mintérminos (y las X) en binario, agrupados por cantidad de unos.</li>
       <li>Se combinan los términos de grupos vecinos que difieren en un bit, reemplazándolo por «–». Por ejemplo, 0101 y 0111 dan 01–1. Se repite con los resultados.</li>
-      <li>Los términos que no se pudieron combinar son los implicantes primos.</li>
+      <li>Los términos que no se pudieron combinar son los implicantes principales.</li>
       <li>En la tabla de cobertura se marcan los esenciales.</li>
-      <li>Si quedan mintérminos sin cubrir, el método de Petrick escribe un producto de sumas con los primos que cubren cada uno, lo multiplica, simplifica con la absorción y elige el término más barato.</li></ol>
+      <li>Si quedan mintérminos sin cubrir, el método de Petrick escribe un producto de sumas con los implicantes principales que cubren cada uno, lo multiplica, simplifica con la absorción y elige el término más barato.</li></ol>
     <p>La pestaña <b>Paso a paso</b>, en modo Quine–McCluskey, muestra todas estas tablas para tu función.</p></div>`)}
 
   ${sec('t-haz', 'Riesgos estáticos', `<div class="prose">
@@ -3382,7 +3396,7 @@ function thGrp() {
     groups = [{ p: info.p, color: info.prime ? 'var(--ok)' : 'var(--g2)' }];
     const changing = [], fixed = [];
     for (let v = 0; v < n; v++) { const bit = 1 << (n - 1 - v); if (info.p.m & bit) changing.push(TN[v]); else fixed.push(`${TN[v]} = ${(info.p.v & bit) ? 1 : 0}`); }
-    res = `<p><b style="color:${info.prime ? 'var(--ok)' : 'var(--dc)'}">${info.prime ? 'Implicante primo: no se puede agrandar más.' : 'Grupo válido, pero se puede agrandar.'}</b></p>
+    res = `<p><b style="color:${info.prime ? 'var(--ok)' : 'var(--dc)'}">${info.prime ? 'Implicante principal: no se puede agrandar más.' : 'Grupo válido, pero se puede agrandar.'}</b></p>
       <p>${changing.length ? `Cambian ${changing.join(', ')} → se eliminan.` : 'No cambia ninguna variable.'} ${fixed.length ? `Permanecen ${fixed.join(', ')}.` : ''}</p>
       <div class="expr">Término = ${thTerm(n, info.p, false)}</div>
       ${info.prime ? '' : `<p class="hint">Prueba a incluir también ${info.grow[0].map(c => 'm' + c).join(', ')}: el grupo se duplica y pierde un literal.</p>`}`;
@@ -3403,7 +3417,7 @@ function thEj() {
   let groups = [], txt = '';
   const lst = arr => arr.map((p, i) => `<div class="legend" style="margin:3px 0"><span class="it" style="color:${gcol(i)}"><span class="sw"></span><span style="color:var(--ink)">${thTerm(4, p, false)} <span class="meta">m(${p.cov.join(',')})</span></span></span></div>`).join('');
   if (TH.ej === 0) txt = `<p>Se marcan los ocho unos. A simple vista llama la atención el bloque central de cuatro unos: m5, m7, m13 y m15.</p><p>La tentación es empezar por ahí, porque es el grupo más grande. Veamos qué pasa.</p>`;
-  if (TH.ej === 1) { groups = P.map((p, i) => ({ p, color: gcol(i) })); txt = `<p>Hay ${P.length} implicantes primos: el grupo de cuatro ${thTerm(4, big, false)} y cuatro pares que «salen» del bloque hacia afuera.</p>${lst(P)}`; }
+  if (TH.ej === 1) { groups = P.map((p, i) => ({ p, color: gcol(i) })); txt = `<p>Hay ${P.length} implicantes principales: el grupo de cuatro ${thTerm(4, big, false)} y cuatro pares que «salen» del bloque hacia afuera.</p>${lst(P)}`; }
   if (TH.ej === 2) { groups = ess.map((p, i) => ({ p, color: gcol(i) })); txt = `<p>Cada par es esencial: m1, m6, m11 y m12 solo pueden agruparse con un vecino cada uno. Al tomar esos cuatro pares, <b>los cuatro unos del centro ya quedan cubiertos</b>.</p>${lst(ess)}`; }
   if (TH.ej === 3) { groups = r.terms.map((p, i) => ({ p, color: gcol(i) })); txt = `<p>Resultado: F = ${thExpr(4, r)} (${litCount2(r)} literales).</p><p class="callout">Si hubiéramos agregado ${thTerm(4, big, false)}, la ecuación tendría 5 términos y seguiría siendo correcta, pero no mínima: ese grupo es <b>redundante</b>. Moraleja: primero los esenciales, y solo después se mira lo que falta.</p>`; }
   $('#thEjMap').innerHTML = drawMap({ n: 4, vals, names: TN.slice(0, 4), cs: 50, groups });
@@ -3491,11 +3505,11 @@ function thPrim() {
   const vals = Array(16).fill(0);[0, 1, 2, 5, 6, 7, 8, 9, 10, 14].forEach(i => vals[i] = 1);
   const r = K.minimize(4, vals, false);
   const ess = r.cover.essentials.map(i => r.primes[i]);
-  const list = TH.prim === 'primos' ? r.primes : TH.prim === 'esenciales' ? ess : r.terms;
+  const list = TH.prim === 'principales' ? r.primes : TH.prim === 'esenciales' ? ess : r.terms;
   $('#thPrim').innerHTML = drawMap({ n: 4, vals, names: TN.slice(0, 4), cs: 50, groups: list.map((p, i) => ({ p, color: gcol(i) })) });
   const txt = {
-    primos: `Hay ${r.primes.length} implicantes primos. Ninguno se puede agrandar sin tocar un cero, pero no todos hacen falta.`,
-    esenciales: `${ess.length} primos son esenciales: cada uno cubre un 1 que nadie más cubre.`,
+    principales: `Hay ${r.primes.length} implicantes principales. Ninguno se puede agrandar sin tocar un cero, pero no todos hacen falta.`,
+    esenciales: `${ess.length} de ellos son esenciales: cada uno cubre un 1 que nadie más cubre.`,
     minima: `Con los esenciales y la mejor elección para los unos restantes resulta la expresión mínima.`
   }[TH.prim];
   $('#thPrimTxt').innerHTML = `<div class="prose"><p>${txt}</p></div>${list.map((p, i) => `<div class="legend" style="margin:4px 0"><span class="it" style="color:${gcol(i)}"><span class="sw"></span><span style="color:var(--ink)">${thTerm(4, p, false)} &nbsp;<span class="meta">m(${p.cov.join(',')})</span></span></span></div>`).join('')}
@@ -3587,7 +3601,7 @@ function renderPractice() {
   fitMap($('#pMap'), PR.n);
   $('#pInfo').textContent = PR.showSol ? 'Mostrando la solución' : `${left} de ${req.length} ${PR.form === 'pos' ? 'ceros' : 'unos'} sin cubrir`;
   const M = PR.form === 'pos' ? 'M' : 'm';
-  $('#pGroups').innerHTML = PR.groups.length ? `<h3>Tus grupos</h3>` + PR.groups.map((g, i) => `<div class="pgroup" style="color:${gcol(i)}"><span class="sw"></span><span><b>Grupo ${i + 1}</b> <span class="meta">${M}(${g.p.cov.join(',')})</span>${PR.reveal ? ` → <b>${prTerm(g.p)}</b>` : ''}</span>${PR.checked ? `<span class="pill ${g.prime ? 'ok' : ''}">${g.prime ? 'primo' : 'se puede agrandar'}</span>` : ''}<button class="btn sm x" data-pdel="${i}" aria-label="Quitar grupo">✕</button></div>`).join('')
+  $('#pGroups').innerHTML = PR.groups.length ? `<h3>Tus grupos</h3>` + PR.groups.map((g, i) => `<div class="pgroup" style="color:${gcol(i)}"><span class="sw"></span><span><b>Grupo ${i + 1}</b> <span class="meta">${M}(${g.p.cov.join(',')})</span>${PR.reveal ? ` → <b>${prTerm(g.p)}</b>` : ''}</span>${PR.checked ? `<span class="pill ${g.prime ? 'ok' : ''}">${g.prime ? 'implicante principal' : 'se puede agrandar'}</span>` : ''}<button class="btn sm x" data-pdel="${i}" aria-label="Quitar grupo">✕</button></div>`).join('')
     + (PR.reveal ? `<div class="expr sm" style="margin-top:8px">Con tus grupos: F = ${prExpr(PR.groups.map(g => g.p))}</div>`
       : `<p class="hint">Escribe el término de cada grupo y la ecuación final abajo. Los términos aparecen aquí cuando tu ecuación sea correcta o cuando pidas la solución.</p>`) : '';
 }
@@ -3864,7 +3878,7 @@ const RP_SECTIONS = [
   ['def', 'Función y tabla de verdad', `${mxSym('m')}, ${mxSym('M')} y la tabla completa con el mintérmino o maxitérmino de cada fila.`],
   ['time', 'Diagrama de tiempos', 'Las entradas como contador binario y la salida F, como se verían en el osciloscopio.'],
   ['map', 'Mapas con los grupos', 'El mapa de la forma elegida con cada grupo de color y el término que produce.'],
-  ['steps', 'Procedimiento paso a paso', 'Tablas de Quine–McCluskey, implicantes primos, esenciales con su justificación y Petrick desarrollado.'],
+  ['steps', 'Procedimiento paso a paso', 'Tablas de Quine–McCluskey, implicantes principales, esenciales con su justificación y Petrick desarrollado.'],
   ['res', 'Resultados y correlaciones', 'Formas mínimas y canónicas, relación por De Morgan y tabla de costos.'],
   ['haz', 'Riesgos estáticos', 'Transiciones con riesgo y términos de consenso que las eliminan.'],
   ['circ', 'Diagrama lógico', 'Circuito con las opciones elegidas en la pestaña Circuito, verificado contra la tabla.'],
@@ -4052,19 +4066,19 @@ async function makePDF() {
         T(`1) Se listan los ${pos ? 'maxitérminos' : 'mintérminos'} ${Mm}(${r.req.join(', ')})${r.dcs.length ? ` y las condiciones de no importa d(${r.dcs.join(', ')})` : ''} en binario, ordenados por cantidad de unos.`);
         r.qm.iterations.forEach((it, k) => {
           T(`${k + 2}) ${k === 0 ? 'Términos individuales' : `Combinaciones de ${1 << k} celdas`}:`, 10, 'bold', INK, .5);
-          const rows = [...it].sort((a, b) => K.popcount(a.v) - K.popcount(b.v)).map(t => [String(K.popcount(t.v)), `${Mm}(${t.cov.join(',')})`, K.pattern(S.n, t), t.used ? 'combinado' : 'PRIMO']);
+          const rows = [...it].sort((a, b) => K.popcount(a.v) - K.popcount(b.v)).map(t => [String(K.popcount(t.v)), `${Mm}(${t.cov.join(',')})`, K.pattern(S.n, t), t.used ? 'combinado' : 'PRINCIPAL']);
           TABLE(['N.º de 1', 'Términos', names.join(''), ''], rows, [18, 70, 40, 30], 8);
         });
-        T('Implicantes primos:', 10, 'bold', INK, .5);
+        T('Implicantes principales:', 10, 'bold', INK, .5);
         const ess = new Set(r.cover.essentials);
-        TABLE(['Primo', 'Cubre', 'Patrón', 'Término', 'Esencial'], r.primes.map((p, i) => [`P${i + 1}`, `${Mm}(${p.cov.join(',')})`, K.pattern(S.n, p), pTerm(p, pos), ess.has(i) ? 'sí' : '']), [16, 62, 30, 50, 18], 8);
+        TABLE(['Implicante', 'Cubre', 'Patrón', 'Término', 'Esencial'], r.primes.map((p, i) => [`P${i + 1}`, `${Mm}(${p.cov.join(',')})`, K.pattern(S.n, p), pTerm(p, pos), ess.has(i) ? 'sí' : '']), [16, 62, 30, 50, 18], 8);
         if (ess.size) [...ess].forEach(i => { const only = r.primes[i].cov.filter(c => r.cover.covers.get(c) && r.cover.covers.get(c).length === 1); T(`P${i + 1} es esencial porque es el único que cubre ${only.map(c => Mm + c).join(' y ')}.`, 10, 'normal', INK, .5); });
-        else T('No hay implicantes primos esenciales.');
+        else T('No hay implicantes principales esenciales.');
         if (r.cover.remaining.length) {
           const factors = r.cover.remaining.map(c => r.cover.covers.get(c).filter(i => !ess.has(i)));
           T(`Quedan por cubrir ${Mm}(${r.cover.remaining.join(', ')}). Método de Petrick: P = ${factors.map(f => '(' + f.map(i => 'P' + (i + 1)).join(' + ') + ')').join('')}`);
           const exp = K.petrickExpand(factors, 24);
-          if (exp && exp.length <= 16) T(`Al multiplicar y aplicar la absorción: P = ${exp.map(t => t.map(i => 'P' + (i + 1)).join('·')).join(' + ')}. Se elige el término con menos primos y menos literales.`);
+          if (exp && exp.length <= 16) T(`Al multiplicar y aplicar la absorción: P = ${exp.map(t => t.map(i => 'P' + (i + 1)).join('·')).join(' + ')}. Se elige el término con menos implicantes principales y menos literales.`);
         }
         T('Lectura de los grupos:', 10, 'bold', INK, .5);
         res.terms.forEach((p, i) => {
@@ -4152,7 +4166,17 @@ function showView(v) {
   if (v === 'calc') fitMap($('#mapBox'), S.n);
   renderActive();
 }
+/* pone el menú en su propia fila cuando no cabe junto al título, y publica la altura del encabezado */
+function fitTabs() {
+  const top = $('.top'), tabs = $('.tabs');
+  top.classList.remove('stack');
+  if (innerWidth > 860 && tabs.scrollWidth > tabs.clientWidth + 1) top.classList.add('stack');
+  document.documentElement.style.setProperty('--top-h', top.offsetHeight + 'px');
+}
 function bindTabs() {
+  fitTabs();
+  addEventListener('resize', fitTabs);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitTabs);
   $('.tabs').addEventListener('click', e => { const t = e.target.closest('.tab'); if (t) { showView(t.dataset.view); window.scrollTo({ top: 0 }); } });
   $('.tabs').addEventListener('keydown', e => {
     if (!['ArrowRight', 'ArrowLeft'].includes(e.key)) return;

@@ -17,4 +17,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Simuladores para probar los bancos de prueba (VHDL y Verilog)
+        run: sudo apt-get update -q && sudo apt-get install -y -q ghdl iverilog
       - run: npm test

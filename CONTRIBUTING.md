@@ -16,7 +16,9 @@ puede reproducir exactamente.
 2. Toda la aplicación está en `index.html`. Ábrelo en el navegador o ejecuta
    `npm start` y visita <http://localhost:8080>.
 3. Si cambias el núcleo lógico (el objeto `K`), agrega o actualiza las pruebas en
-   `tests/` y ejecuta `npm test`.
+   `tests/` y ejecuta `npm test`. Para que también se ejecuten los bancos de
+   prueba de VHDL y Verilog instala GHDL e Icarus Verilog (en Ubuntu:
+   `sudo apt install ghdl iverilog`); sin ellos esas pruebas se omiten.
 4. Comprueba el cambio en un celular (o con la vista adaptable del navegador) y en
    los temas claro y oscuro.
 5. Anota el cambio en `CHANGELOG.md` y abre un *pull request* explicando qué

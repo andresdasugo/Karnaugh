@@ -4,6 +4,32 @@ Todas las versiones importantes del Laboratorio Karnaugh. El formato sigue
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [5.2.0] - 2026-10-11
+
+### Agregado
+- **Bancos de prueba (testbench)** para la exportación: en Calculadora →
+  Exportar, cada lenguaje tiene la opción Diseño / Testbench y el botón
+  «Diseño + testbench (.zip)» con un LEEME de cómo ejecutarlo.
+  - VHDL y Verilog: banco de prueba que recorre todas las combinaciones y
+    compara la salida con la tabla de verdad (las X no se comparan).
+  - C y Python: programa completo con la función y su prueba.
+  - Logisim: vector de prueba (Simular → Vector de prueba), incluido también
+    en los .zip de Logisim de Calculadora, Circuito y Multisalida.
+- Multisalida: botón «VHDL y Verilog + testbench (.zip)».
+- Pruebas automáticas que generan el código de cada lenguaje y lo ejecutan
+  con GHDL, Icarus Verilog, gcc y Python, incluida una prueba negativa que
+  altera la tabla esperada para confirmar que el banco de prueba detecta el
+  error. GitHub Actions instala GHDL e Icarus Verilog.
+
+### Corregido
+- VHDL/Verilog/C/Python: con 6 variables la entrada F chocaba con la salida F
+  y el código no compilaba; ahora la salida se llama F_out. Los nombres que
+  son palabras reservadas del lenguaje (in, end, int, def…) se renombran.
+- VHDL y Verilog usan solo caracteres ASCII, para que ninguna herramienta
+  rechace el archivo por las tildes.
+- Los archivos VHDL y Verilog se descargan con su extensión (.vhd, .v) en
+  lugar de .txt.
+
 ## [5.1.2] - 2026-10-11
 
 ### Cambiado
@@ -104,6 +130,7 @@ Primera versión publicada en este repositorio.
 - Versiones iniciales: calculadora de mapas de Karnaugh, paso a paso, circuito,
   protoboard, teoría e informe en PDF.
 
+[5.2.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.2.0
 [5.1.2]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.1.2
 [5.1.1]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.1.1
 [5.1.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.1.0

@@ -5,7 +5,7 @@
 [![Pruebas](https://github.com/andresdasugo/Karnaugh/actions/workflows/ci.yml/badge.svg)](https://github.com/andresdasugo/Karnaugh/actions/workflows/ci.yml)
 [![Publicación](https://github.com/andresdasugo/Karnaugh/actions/workflows/pages.yml/badge.svg)](https://github.com/andresdasugo/Karnaugh/actions/workflows/pages.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
-![Versión](https://img.shields.io/badge/versión-5.1.2-informational)
+![Versión](https://img.shields.io/badge/versión-5.2.0-informational)
 
 ### ▶ [Abrir el laboratorio](https://andresdasugo.github.io/Karnaugh/)
 
@@ -19,10 +19,10 @@ Funciona en cualquier navegador moderno (Chrome, Edge, Firefox, Safari), en comp
 
 | Pestaña | Para qué sirve |
 | --- | --- |
-| **Calculadora** | Define la función tocando el mapa o la tabla de verdad, escribiéndola como ecuación (`a'b + c(a + !d)`) o como lista ∑m / ∏M, con condiciones de no importa (X). Obtén al instante la SOP y la POS mínimas, las formas canónicas, el costo en compuertas, los riesgos estáticos, el diagrama de tiempos y la exportación a VHDL, Verilog, C/Arduino, Python, LaTeX y Logisim. |
+| **Calculadora** | Define la función tocando el mapa o la tabla de verdad, escribiéndola como ecuación (`a'b + c(a + !d)`) o como lista ∑m / ∏M, con condiciones de no importa (X). Obtén al instante la SOP y la POS mínimas, las formas canónicas, el costo en compuertas, los riesgos estáticos, el diagrama de tiempos y la exportación a VHDL, Verilog, C/Arduino, Python, LaTeX y Logisim, cada una con su **banco de prueba (testbench)**. |
 | **Paso a paso** | El procedimiento completo explicado: con el mapa (como se hace a mano) o con el método tabular de **Quine–McCluskey** y el método de **Petrick**. |
 | **Práctica** | Ejercicios aleatorios: forma tú los grupos, recibe retroalimentación y un puntaje, y comprueba tu ecuación final. |
-| **Multisalida** | Circuitos de varias salidas con términos compartidos: decodificador BCD a 7 segmentos, sumador completo, comparador, BCD a exceso 3, decodificador 2 a 4, binario a Gray o tu propio diseño. |
+| **Multisalida** | Circuitos de varias salidas con términos compartidos: decodificador BCD a 7 segmentos, sumador completo, comparador, BCD a exceso 3, decodificador 2 a 4, binario a Gray o tu propio diseño. Se exportan a VHDL y Verilog con banco de prueba, y a Logisim con vector de prueba. |
 | **Circuito** | Diagrama lógico con AND-OR, solo NAND, solo NOR o XOR, compuertas de 2 o hasta 4 entradas y la lista de integrados 74LS / 74HC. Interruptores interactivos para simularlo. |
 | **Protoboard** | Montaje sugerido en protoboard con guía cable por cable, lista de cableado descargable en CSV y notas para energizar sin dañar los integrados. |
 | **Teoría** | Curso interactivo: álgebra de Boole, mintérminos y maxitérminos, código Gray, adyacencias, grupos máximos, mapas de 5 y 6 variables, riesgos, NAND/NOR, integrados 74xx, autoevaluación, glosario y bibliografía. |
@@ -46,6 +46,18 @@ En la calculadora, abre **«Compartir o cargar un ejercicio»** y copia el códi
 ```
 https://andresdasugo.github.io/Karnaugh/#k=K4-A.B.C.D-1110011111100010
 ```
+
+## Bancos de prueba (testbench)
+
+En **Calculadora → Exportar**, elige el lenguaje y cambia entre **Diseño** y **Testbench**. El banco de prueba recorre todas las combinaciones de entrada y compara la salida de la ecuación simplificada con la **tabla de verdad original** (las filas X no se comparan); al final informa «Prueba superada» o las filas que fallan. El botón **Diseño + testbench (.zip)** descarga ambos archivos con un LEEME que explica cómo ejecutarlos.
+
+| Lenguaje | Archivos | Cómo ejecutarlo |
+| --- | --- | --- |
+| VHDL | `funcion_k.vhd`, `funcion_k_tb.vhd` | `ghdl -a funcion_k.vhd funcion_k_tb.vhd && ghdl -e funcion_k_tb && ghdl -r funcion_k_tb`, o ModelSim, Quartus, Vivado |
+| Verilog | `funcion_k.v`, `funcion_k_tb.v` | `iverilog -o funcion_k_tb funcion_k.v funcion_k_tb.v && vvp funcion_k_tb`, o ModelSim, Vivado |
+| C | `funcion_k_tb.c` | `gcc funcion_k_tb.c -o funcion_k_tb && ./funcion_k_tb` |
+| Python | `funcion_k_tb.py` | `python3 funcion_k_tb.py` |
+| Logisim | `funcion_k.circ`, `funcion_k_vector.txt` | Logisim-evolution: **Simular → Vector de prueba** |
 
 ## Usarlo sin conexión
 
@@ -77,7 +89,7 @@ npm test        # ejecuta las pruebas del núcleo lógico
 npm start       # sirve el sitio en http://localhost:8080
 ```
 
-Las pruebas comprueban, entre otras cosas, que la SOP y la POS reproducen la tabla de verdad en cientos de funciones aleatorias de 2 a 6 variables, que la cobertura es mínima en las 256 funciones de 3 variables y que los circuitos AND-OR, NAND, NOR, XOR y multisalida son correctos.
+Las pruebas comprueban, entre otras cosas, que la SOP y la POS reproducen la tabla de verdad en cientos de funciones aleatorias de 2 a 6 variables, que la cobertura es mínima en las 256 funciones de 3 variables y que los circuitos AND-OR, NAND, NOR, XOR y multisalida son correctos. Además generan el código VHDL, Verilog, C y Python con su banco de prueba y lo **ejecutan** con GHDL, Icarus Verilog, gcc y Python (se omiten las herramientas que no estén instaladas; en GitHub Actions se instalan todas).
 
 ### Publicación
 

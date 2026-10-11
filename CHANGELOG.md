@@ -4,6 +4,24 @@ Todas las versiones importantes del Laboratorio Karnaugh. El formato sigue
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [5.1.1] - 2026-10-11
+
+### Cambiado
+- «Implicante primo» pasa a llamarse «implicante principal» en toda la
+  aplicación (calculadora, paso a paso, práctica, teoría, autoevaluación,
+  glosario e informe PDF). El glosario aclara que en otros libros se llama
+  «implicante primo».
+
+### Corregido
+- Menú superior: entre unos 860 y 1230 px de ancho, las primeras pestañas
+  (Calculadora, Paso a paso…) quedaban escondidas detrás del título y no se
+  podía llegar a ellas. Ahora, si el menú no cabe junto al título, pasa a su
+  propia fila; ninguna pestaña puede quedar fuera de la pantalla.
+- Teoría: el índice lateral y los saltos a cada sección respetan la altura
+  real del encabezado.
+- Paso a paso: «Los más cortos usan N implicantes principales» (concordancia
+  del plural).
+
 ## [5.1.0] - 2026-10-11
 
 ### Cambiado
@@ -12,7 +30,7 @@ Todas las versiones importantes del Laboratorio Karnaugh. El formato sigue
   válido y lista sus celdas; el estudiante escribe los términos y la ecuación
   final. Los términos aparecen cuando su ecuación es correcta o cuando pide la
   solución.
-- Práctica: los avisos «primo» / «se puede agrandar» se muestran al pulsar
+- Práctica: los avisos «implicante principal» / «se puede agrandar» se muestran al pulsar
   «Revisar», que ahora señala los grupos por sus celdas.
 
 ### Corregido
@@ -66,6 +84,7 @@ Primera versión publicada en este repositorio.
 - Versiones iniciales: calculadora de mapas de Karnaugh, paso a paso, circuito,
   protoboard, teoría e informe en PDF.
 
+[5.1.1]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.1.1
 [5.1.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.1.0
 [5.0.1]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.0.1
 [5.0.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.0.0

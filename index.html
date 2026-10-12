@@ -6,7 +6,7 @@
 <title>Laboratorio Karnaugh</title>
 <meta name="description" content="Simplifica funciones lógicas con mapas de Karnaugh de 2 a 6 variables: SOP y POS mínimas, paso a paso con Quine–McCluskey, práctica, circuitos de varias salidas, protoboard, teoría e informe en PDF.">
 <meta name="application-name" content="Laboratorio Karnaugh">
-<meta name="version" content="5.2.0">
+<meta name="version" content="5.2.1">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Laboratorio Karnaugh">
 <meta property="og:description" content="Simplifica, entiende y arma funciones lógicas con mapas de Karnaugh, directamente en el navegador.">
@@ -886,7 +886,7 @@ table.cost td.best{color:var(--ok-t)}
     <div class="row opts">
       <label><input type="checkbox" id="lvlChk" checked> Ver niveles lógicos</label>
       <label><input type="checkbox" id="pinChk"> Mostrar número y función de cada pin</label>
-      <label><input type="checkbox" id="tieChk" checked> Conectar entradas sin usar a GND</label>
+      <label title="Las entradas sin usar de los integrados CMOS (74HC) siempre se conectan a GND; en los 74LS es opcional"><input type="checkbox" id="tieChk"> Conectar a GND también las entradas sin usar de los 74LS</label>
       <span class="row" style="gap:6px"><span class="meta">Interruptores con</span><span class="seg" id="pullSeg"><button data-pull="down" aria-pressed="true">pull-down</button><button data-pull="up" aria-pressed="false">pull-up</button></span></span>
     </div>
     <div class="guide" id="guideBar" hidden>
@@ -3006,10 +3006,14 @@ function boardModel(net, ctx) {
   for (let k = 0; k < n; k++) { reserve(d0 + k, 'e'); reserve(d0 + k, 'f'); reserve(d0 + k, 'j'); reserve(d0 + k, 'a'); }
   al.chips.forEach((c, i) => { for (let p = 1; p <= 14; p++) { const q = pinLoc(i, p); reserve(q.col, q.row); } reserve(chipCol(i), 'a'); reserve(chipCol(i) + 6, 'j'); });
   OUTS.forEach((o, k) => { reserve(ledCol(k), 'f'); reserve(ledCol(k) + 1, 'f'); reserve(ledCol(k) + 1, 'j'); });
-  const ties = [];
-  if (S.tie !== false) al.chips.forEach((c, i) => {
+  /* entradas de las compuertas sobrantes de cada integrado: en CMOS (74HC) siempre van a GND,
+     porque al aire oscilan y calientan el integrado; en TTL (74LS) flotan como 1 y es opcional */
+  const ties = [], isCmos = c => S.series === 'hc' || c.type.startsWith('74HC');
+  const spare = al.chips.map(c => ({ cmos: isCmos(c), n: K.CHIPS[c.type].pins.length - c.gates.length }));
+  al.chips.forEach((c, i) => {
+    if (!spare[i].cmos && S.tie !== true) return;
     const pins = K.CHIPS[c.type].pins;
-    for (let sl = c.gates.length; sl < pins.length; sl++) pins[sl].slice(0, -1).forEach(p => { const q = pinLoc(i, p); const row = q.h === 'T' ? 'a' : 'j'; reserve(q.col, row); ties.push({ chip: i, pin: p, col: q.col, row, rail: q.h === 'T' ? 'tn' : 'bn' }); });
+    for (let sl = c.gates.length; sl < pins.length; sl++) pins[sl].slice(0, -1).forEach(p => { const q = pinLoc(i, p); const row = q.h === 'T' ? 'a' : 'j'; reserve(q.col, row); ties.push({ chip: i, pin: p, col: q.col, row, rail: q.h === 'T' ? 'tn' : 'bn', cmos: spare[i].cmos }); });
   });
   // nombres y extremos de cada red
   const netName = id => {
@@ -3115,7 +3119,7 @@ function boardModel(net, ctx) {
   });
   ties.forEach(t => power.push({ kind: 'gnd', a: { col: t.col, row: t.row, desc: `${al.chips[t.chip].label} pin ${t.pin} (entrada sin usar)` }, rail: t.rail, rc: t.col, key: 'tie', chip: t.chip }));
   OUTS.forEach((o, k) => { if (nodes[o].t === 'C1') power.push({ kind: 'vcc', a: { col: ledCol(k), row: takeHole(ledCol(k), 'B', Y.g), desc: `LED ${ctx.outNames[k] || 'F'} (ánodo)` }, rail: 'bp', rc: ledCol(k), key: 'led' }); });
-  return { P, C, X, Y, d0, chipCol, L0, ledCol, OUTS, ctx, wires, power, al, pinLoc, railCol, netColor, ties, outN };
+  return { P, C, X, Y, d0, chipCol, L0, ledCol, OUTS, ctx, wires, power, al, pinLoc, railCol, netColor, ties, spare, outN };
 }
 function roundedPath(pts, r) {
   let d = `M${pts[0][0]} ${pts[0][1]}`;
@@ -3235,7 +3239,10 @@ function guideSteps(B) {
     const c0 = B.chipCol(i);
     st.push({ key: 'chip' + i, t: `Coloca ${c.label}: ${chipName(c.type)}`, x: `Insértalo cruzando el canal central en las columnas ${c0} a ${c0 + 6}, con la muesca hacia la izquierda (${K.CHIPS[c.type].name}). Luego un cable rojo del pin 14 (columna ${c0}, fila a) al riel + y uno negro del pin 7 (columna ${c0 + 6}, fila j) al riel −.` });
   });
-  if (B.ties.length) st.push({ key: 'tie', t: 'Conecta a GND las entradas sin usar', x: `Con cables negros cortos, lleva a tierra: ${B.ties.map(t => `${B.al.chips[t.chip].label} pin ${t.pin}`).join(', ')}. Así no quedan entradas flotando.` });
+  if (B.ties.length) {
+    const cm = B.ties.some(t => t.cmos), tt = B.ties.some(t => !t.cmos);
+    st.push({ key: 'tie', t: 'Conecta a GND las entradas sin usar', x: `Son las entradas de las compuertas que sobran en cada integrado. Con cables negros cortos, lleva a tierra: ${B.ties.map(t => `${B.al.chips[t.chip].label} pin ${t.pin}`).join(', ')}.${cm ? ' En los integrados CMOS (74HC) es obligatorio: una entrada al aire puede oscilar, calentar el integrado y hasta dañarlo.' : ''}${tt ? ' En los 74LS es opcional: al aire se comportarían como 1, y conectarlas mejora la inmunidad al ruido.' : ''}` });
+  }
   st.push({ key: 'led', t: B.OUTS.length > 1 ? `Coloca los ${B.OUTS.length} LED de salida` : 'Coloca el LED de salida', x: B.OUTS.map((o, k) => `${B.OUTS.length > 1 ? esc(B.ctx.outNames[k]) + ': ' : ''}pata larga (ánodo) en la columna ${B.ledCol(k)} y pata corta (cátodo) en la ${B.ledCol(k) + 1}, fila f; resistencia de 330 Ω de la fila j de la columna ${B.ledCol(k) + 1} al riel −`).join('. ') + '.' });
   B.wires.forEach((w, i) => st.push({ key: 'w' + i, wire: i, t: `Cable ${i + 1} de ${B.wires.length}: señal ${esc(w.name)}`, x: `Cable ${colName(w)}: de ${w.a.row}${w.a.col} (${esc(w.a.desc)}) a ${w.b.row}${w.b.col} (${esc(w.b.desc)}). Llévalo plano sobre la protoboard, siguiendo el recorrido que muestra el dibujo.` }));
   st.push({ key: null, t: 'Prueba el montaje', x: 'Enciende la fuente y recorre las combinaciones con el DIP, comparando el LED con la columna F de la tabla de verdad. Si una fila no coincide, revisa primero la alimentación de los integrados y luego los cables de esa señal.' });
@@ -3292,11 +3299,20 @@ function renderBoard() {
       <li>La muesca de cada integrado queda a la izquierda: el pin 1 está abajo a la izquierda y el 14 arriba a la izquierda.</li>
       <li>Pin 14 a +5 V y pin 7 a GND en todos los integrados; sin esto ninguna compuerta funciona.</li>
       <li>${S.pull === 'up' ? 'Con pull-up, cada interruptor lleva su entrada a GND en ON (0 lógico) y la resistencia la deja en 1 cuando está abierto. Es la conexión preferida en TTL; recuerda que ON significa 0.' : `Cada interruptor conecta su entrada a +5 V en ON; la resistencia la lleva a 0 en OFF. ${hc ? 'En CMOS basta con 10 kΩ.' : 'En TTL la pull-down debe ser pequeña (1 kΩ) porque la entrada entrega corriente.'}`}</li>
-      <li>${$('#tieChk').checked ? 'Las entradas de compuertas sin usar ya van a GND en este montaje.' : 'Conecta a GND las entradas de compuertas que no uses: en TTL flotan como 1 y en CMOS pueden oscilar.'}</li>
+      ${spareNote(B)}
       ${cmos(hc) ? '<li>Los integrados CMOS son sensibles a la electricidad estática: tómalos por los costados y no toques los pines.</li>' : ''}
       <li>Recorre la tabla de verdad con el DIP: el LED debe seguir la columna F fila por fila.</li>
     </ul>`;
   applyGuide();
+}
+/* nota sobre las compuertas sobrantes de los integrados (solo si hay alguna) */
+function spareNote(B) {
+  const cm = B.spare.some(x => x.cmos && x.n), tt = B.spare.some(x => !x.cmos && x.n);
+  let h = '';
+  if (cm) h += '<li>Las entradas de las compuertas que sobran en los integrados CMOS (74HC) van a GND: en CMOS es obligatorio, porque al aire pueden oscilar, calentar el integrado y hasta dañarlo.</li>';
+  if (tt) h += S.tie === true ? '<li>Las entradas de las compuertas que sobran en los 74LS también van a GND (opcional en TTL).</li>'
+    : '<li>Las compuertas que sobran en los 74LS quedan sin conectar: en TTL una entrada al aire se comporta como 1 y la salida de esas compuertas no se usa, así que no afectan el circuito. Para más inmunidad al ruido puedes activar «Conectar a GND también las entradas sin usar de los 74LS».</li>';
+  return h;
 }
 const n4 = n => n <= 4 ? 4 : 8;
 const LASTSCALE = {};
@@ -4450,7 +4466,7 @@ function init() {
   $$('[data-fam]').forEach(b => b.setAttribute('aria-pressed', b.dataset.fam === S.family));
   $$('[data-in]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.in === S.maxIn));
   $$('[data-ser]').forEach(b => b.setAttribute('aria-pressed', b.dataset.ser === S.series));
-  $('#tieChk').checked = S.tie !== false;
+  $('#tieChk').checked = S.tie === true;
   $('#introCard').hidden = !!S.introSeen;
   bindCalc(); bindSteps(); bindPractice(); bindMulti(); bindCircuitBoard(); bindTabs();
   $$('#pullSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.pull === (S.pull || 'down')));

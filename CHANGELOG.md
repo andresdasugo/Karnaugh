@@ -4,6 +4,18 @@ Todas las versiones importantes del Laboratorio Karnaugh. El formato sigue
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [5.2.1] - 2026-10-12
+
+### Cambiado
+- Protoboard: las entradas de las compuertas que sobran en un integrado ya no
+  se conectan a GND en los 74LS (TTL), donde una entrada al aire se comporta
+  como 1 y la compuerta sobrante no afecta el circuito. Se sigue haciendo en
+  los CMOS (74HC, incluidos 74HC4075/4072/4002), donde es obligatorio porque
+  una entrada al aire puede oscilar y dañar el integrado. La casilla
+  «Conectar a GND también las entradas sin usar de los 74LS» lo activa para
+  TTL. En el ejemplo de 4 variables con 74LS el montaje baja de 47 a 35 cables.
+- La guía de montaje y las notas explican cuándo y por qué se conectan.
+
 ## [5.2.0] - 2026-10-11
 
 ### Agregado
@@ -130,6 +142,7 @@ Primera versión publicada en este repositorio.
 - Versiones iniciales: calculadora de mapas de Karnaugh, paso a paso, circuito,
   protoboard, teoría e informe en PDF.
 
+[5.2.1]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.2.1
 [5.2.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.2.0
 [5.1.2]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.1.2
 [5.1.1]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.1.1

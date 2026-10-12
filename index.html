@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  Laboratorio Karnaugh · versión 5.2.2
+  Laboratorio Karnaugh · versión 5.3.0
   Simplifica, entiende y arma funciones lógicas con mapas de Karnaugh.
 
   Copyright (c) 2026 andresdasugo
@@ -33,7 +33,7 @@
 <title>Laboratorio Karnaugh</title>
 <meta name="description" content="Simplifica funciones lógicas con mapas de Karnaugh de 2 a 6 variables: SOP y POS mínimas, paso a paso con Quine–McCluskey, práctica, circuitos de varias salidas, protoboard, teoría e informe en PDF.">
 <meta name="application-name" content="Laboratorio Karnaugh">
-<meta name="version" content="5.2.2">
+<meta name="version" content="5.3.0">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Laboratorio Karnaugh">
 <meta property="og:description" content="Simplifica, entiende y arma funciones lógicas con mapas de Karnaugh, directamente en el navegador.">
@@ -619,17 +619,37 @@ table.cost td.best{color:var(--ok-t)}
 
 /* menú superior: ninguna pestaña puede quedar escondida detrás del título.
    Si no cabe junto al título, pasa a su propia fila (clase .stack, la pone fitTabs). */
+/* Grupos del menú: .tabgrp agrupa pestañas relacionadas y .tabsep las separa. */
+.tabgrp{display:flex;gap:4px;align-items:flex-end}
+.tabsep{flex:none;width:1.5px;height:22px;align-self:center;background:var(--line);margin:0 10px}
 @media (min-width:861px){
   .tabs{justify-content:flex-start}
-  .tabs > .tab:first-child{margin-left:auto}
+  .tabs > .tabgrp:first-child{margin-left:auto}
   .top.stack .top-in{flex-wrap:wrap;row-gap:2px;align-items:center}
   .top.stack .tabs{order:3;flex-basis:100%;flex-wrap:wrap;overflow:visible;margin:0 -10px}
-  .top.stack .tabs > .tab:first-child{margin-left:0}
+  .top.stack .tabs > .tabgrp:first-child{margin-left:0}
   .top.stack .theme-btn{margin-left:auto}
   html{scroll-padding-top:calc(var(--top-h,100px) + 12px)}
   .toc{top:calc(var(--top-h,100px) + 12px)}
   .th-sec{scroll-margin-top:0}
 }
+/* Celular: cada grupo del menú ocupa su propia fila y sus pestañas se reparten el ancho.
+   Ninguna pestaña se achica más que su texto: si no caben, pasan a otra fila. */
+@media (max-width:860px){
+  .tabs{display:flex;flex-direction:column;align-items:stretch;overflow:visible;gap:0}
+  .tabgrp{display:flex;flex-wrap:wrap;gap:0}
+  .tabgrp > .tab{flex:1 1 0;min-width:max-content}
+  .tabsep{display:none}
+  .tabgrp + .tabsep + .tabgrp{border-top:1px solid var(--line-2)}
+  .tab{font-size:13px;padding-left:4px;padding-right:4px}
+}
+@media (max-width:420px){
+  .top-in{padding-left:10px;padding-right:10px}
+  .tabs{margin-left:-10px;margin-right:-10px;padding-left:10px;padding-right:10px}
+  .tab{font-size:12px;padding-left:2px;padding-right:2px}
+}
+/* Pantallas muy angostas: el título se achica para que el botón de tema quepa a su lado. */
+@media (max-width:360px){.brand h1{font-size:18px}.brand .mark{width:34px;height:34px}}
 
 </style>
 </head>
@@ -646,15 +666,22 @@ table.cost td.best{color:var(--ok-t)}
       </svg>
       <div><h1>Laboratorio Karnaugh</h1><small>Simplifica, entiende y arma funciones lógicas</small></div>
     </div>
+    <!-- Menú en dos grupos: primero el recorrido con la función de la Calculadora
+         (de la ecuación al montaje y al informe), luego las herramientas independientes. -->
     <nav class="tabs" role="tablist" aria-label="Secciones">
-      <button class="tab" role="tab" data-view="calc" aria-selected="true">Calculadora</button>
-      <button class="tab" role="tab" data-view="steps" aria-selected="false">Paso a paso</button>
-      <button class="tab" role="tab" data-view="practice" aria-selected="false">Práctica</button>
-      <button class="tab" role="tab" data-view="multi" aria-selected="false">Multisalida</button>
-      <button class="tab" role="tab" data-view="circuit" aria-selected="false">Circuito</button>
-      <button class="tab" role="tab" data-view="board" aria-selected="false">Protoboard</button>
-      <button class="tab" role="tab" data-view="theory" aria-selected="false">Teoría</button>
-      <button class="tab" role="tab" data-view="report" aria-selected="false">Informe</button>
+      <div class="tabgrp" role="none" title="Trabajan con la función de la calculadora">
+        <button class="tab" role="tab" data-view="calc" aria-selected="true">Calculadora</button>
+        <button class="tab" role="tab" data-view="steps" aria-selected="false">Paso a paso</button>
+        <button class="tab" role="tab" data-view="circuit" aria-selected="false">Circuito</button>
+        <button class="tab" role="tab" data-view="board" aria-selected="false">Protoboard</button>
+        <button class="tab" role="tab" data-view="report" aria-selected="false">Informe</button>
+      </div>
+      <span class="tabsep" aria-hidden="true"></span>
+      <div class="tabgrp" role="none" title="Herramientas independientes de la calculadora">
+        <button class="tab" role="tab" data-view="multi" aria-selected="false">Multisalida</button>
+        <button class="tab" role="tab" data-view="theory" aria-selected="false">Teoría</button>
+        <button class="tab" role="tab" data-view="practice" aria-selected="false">Práctica</button>
+      </div>
     </nav>
     <button class="theme-btn" id="themeBtn"></button>
   </div>
@@ -3398,10 +3425,14 @@ function drawCircuit(net, opt) {
   const isRail = id => nodes[id].t === 'IN' || railInvIds.has(id);
 
   /* ---- buses: cada variable con su complemento al lado ---- */
-  const railX = new Map();
+  /* varX[v]: columna de cada variable, use o no la función. Una variable sin uso no tiene
+     nodo de entrada en la netlist, así que su posición no puede guardarse en railX
+     (antes, dos variables sin uso compartían la clave undefined y se dibujaban encimadas). */
+  const railX = new Map(), varX = [];
   let x = 30;
   for (let v = 0; v < n; v++) {
-    railX.set(inId.get(v), x);
+    varX[v] = x;
+    if (inId.has(v)) railX.set(inId.get(v), x);
     if (railInv.has(v)) { railX.set(railInv.get(v), x + 28); x += 28; }
     x += 34;
   }
@@ -3544,7 +3575,7 @@ function drawCircuit(net, opt) {
   });
   // buses
   for (let v = 0; v < n; v++) {
-    const id = inId.get(v), rx = railX.get(id);
+    const id = inId.get(v), rx = varX[v];
     let bottom = railTaps.get(id) || 0;
     if (railInv.has(v)) bottom = Math.max(bottom, yTap);
     if (bottom) seg(id, rx, 32, rx, bottom);
@@ -3604,7 +3635,7 @@ function drawCircuit(net, opt) {
     if (w) labels.push(`<text x="${gx + 2}" y="${g.y + g.h + 12}" font-size="10.5" style="fill:var(--muted)">${al.chips[w.chip].label} · ${chipName(al.chips[w.chip].type)}</text>`);
   });
   for (let v = 0; v < n; v++) {
-    const id = inId.get(v), rx = railX.get(id), used = railTaps.has(id) || railInv.has(v);
+    const id = inId.get(v), rx = varX[v], used = id !== undefined && (railTaps.has(id) || railInv.has(v));
     labels.push(`<g class="rail-lbl" data-bit="${v}" style="cursor:pointer"><rect x="${rx - 13}" y="8" width="26" height="24" rx="5" style="fill:${val && val[id] ? 'var(--hi-soft)' : 'var(--surface-2)'};stroke:${wc(id)}" stroke-width="1.5" ${used ? '' : 'stroke-dasharray="3 3"'}/>
       <text x="${rx}" y="25" text-anchor="middle" font-size="15" font-weight="700" style="fill:var(--ink)">${esc(NMS[v])}</text></g>`);
     if (!used) labels.push(`<text x="${rx}" y="46" text-anchor="middle" font-size="10" style="fill:var(--muted)">sin uso</text>`);
@@ -3888,11 +3919,14 @@ function drawBoard(net, opt) {
   s.push(`<text x="${X(1) - 2}" y="15" font-size="11" font-weight="700" fill="#D63031">+5 V</text><text x="${X(1) - 2}" y="${Y.bn + 21}" font-size="11" font-weight="700" fill="#1E5BC6">GND</text>`);
   const groups = {};
   const put = (key, svg) => { (groups[key] = groups[key] || []).push(svg); };
+  /* Los rótulos van en los espacios entre filas de agujeros, para no taparlos:
+     gapCD = línea base de un texto de ~10 px entre las filas c y d (y gapCD − P entre b y c). */
+  const gapCD = (Y.c + Y.d) / 2 + 3.6;
   const resistor = (key, c, r1, rail, bands, label) => {
     const x = X(c), y1 = Y[r1], y2 = Y[rail], ym = (y1 + y2) / 2;
     put(key, `<path d="M${x} ${y1}V${y2}" stroke="#9A9A9A" stroke-width="1.6"/><rect x="${x - 4.5}" y="${ym - 11}" width="9" height="22" rx="4" fill="#E2C690" stroke="#A88B55"/>` +
       bands.map((b, i) => `<rect x="${x - 4.5}" y="${ym - 8 + i * 5}" width="9" height="2.6" fill="${b}"/>`).join('') +
-      (label ? `<text x="${x + 7}" y="${ym + 4}" font-size="10" fill="#6C6A60">${label}</text>` : ''));
+      (label ? `<text x="${x + 7}" y="${Y.j + 13}" font-size="10" fill="#6C6A60">${label}</text>` : ''));   // entre la fila j y la línea del riel
   };
   const hc = S.series === 'hc';
   const PU = S.pull === 'up';
@@ -3902,7 +3936,7 @@ function drawBoard(net, opt) {
   for (let k = 0; k < n; k++) {
     const bit = (DIP >> (n - 1 - k)) & 1, on = PU ? 1 - bit : bit, x = X(B.d0 + k);
     put('dip', `<g class="board-sw" data-bit="${k}"><rect x="${x - 4.5}" y="${Y.e + 1}" width="9" height="${Y.f - Y.e - 2}" rx="1.5" fill="#3A1111"/><rect x="${x - 3.5}" y="${on ? Y.e + 2 : (Y.e + Y.f) / 2}" width="7" height="${(Y.f - Y.e) / 2 - 3}" rx="1" fill="#F5F3EE"/><title>Interruptor ${esc(nmD(k))}: ${on ? 'ON' : 'OFF'} → ${esc(nmD(k))} = ${bit}</title></g>
-      <text x="${x}" y="${Y.e - 11 - (B.ctx.names.slice(0, n).some(z => z.length > 1) && k % 2 ? 10 : 0)}" text-anchor="middle" font-size="${B.ctx.names.slice(0, n).some(z => z.length > 1) ? 9.5 : 11}" font-weight="700" fill="#222">${esc(nmD(k))}</text>`);
+      <text x="${x}" y="${gapCD - (B.ctx.names.slice(0, n).some(z => z.length > 1) && k % 2 ? P : 0)}" text-anchor="middle" font-size="${B.ctx.names.slice(0, n).some(z => z.length > 1) ? 9.5 : 10.5}" font-weight="700" fill="#222">${esc(nmD(k))}</text>`);
   }
   B.al.chips.forEach((c, i) => {
     const c0 = B.chipCol(i), x1 = X(c0) - P * .55, x2 = X(c0 + 6) + P * .55, lab = pinLabels(c.type);
@@ -3932,7 +3966,7 @@ function drawBoard(net, opt) {
     put('led', `<path d="M${X(c0)} ${Y.f}V${Y.f - 18}M${X(c0 + 1)} ${Y.f}V${Y.f - 14}" stroke="#A8A8A8" stroke-width="1.6"/>
       ${ledOn ? `<circle cx="${lx}" cy="${Y.f - 26}" r="18" fill="#FF5A2E" opacity=".35"/>` : ''}
       <circle cx="${lx}" cy="${Y.f - 26}" r="8.5" fill="${ledOn ? '#FF5A2E' : '#7A2A1A'}" stroke="#4A1A10"><title>LED de la salida ${esc(nmO)} (ánodo en la columna ${c0})</title></circle>
-      <text x="${lx}" y="${Y.f - 40 - (k % 2 && B.OUTS.length > 3 ? 10 : 0)}" text-anchor="middle" font-size="11" font-weight="700" fill="#222">${esc(nmO)}</text>`);
+      <text x="${lx}" y="${gapCD - (k % 2 && B.OUTS.length > 3 ? P : 0)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="#222">${esc(nmO)}</text>`);
   });
   const tip = (x, y) => `<circle cx="${x}" cy="${y}" r="2.1" fill="#B8BCC0" stroke="#6A6E72" stroke-width=".6"/>`;
   const jumper = (d, col, key, glow, ends) => `<g class="wire" data-w="${key}">${glow ? `<path d="${d}" fill="none" stroke="#FF6A2E" stroke-opacity=".45" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>` : ''}<path d="${d}" fill="none" stroke="rgba(0,0,0,.38)" stroke-width="4.6" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1" stroke-linejoin="round" transform="translate(-.6 -.6)"/>${ends.map(([x, y]) => tip(x, y)).join('')}</g>`;

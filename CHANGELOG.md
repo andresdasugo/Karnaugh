@@ -4,6 +4,25 @@ Todas las versiones importantes del Laboratorio Karnaugh. El formato sigue
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [5.3.0] - 2026-10-12
+
+### Cambiado
+- Menú reorganizado en dos grupos: primero las pestañas que trabajan con la
+  función de la Calculadora, en el orden en que se usan (Calculadora, Paso a
+  paso, Circuito, Protoboard, Informe), y luego las herramientas
+  independientes (Multisalida, Teoría, Práctica). En el celular cada grupo
+  ocupa su propia fila.
+
+### Corregido
+- Diagrama lógico: cuando dos o más variables no se usaban, se dibujaban
+  encimadas en la misma posición (solo se veía una). Ahora aparecen todas, cada
+  una con la nota «sin uso».
+- Protoboard: las letras del DIP y los nombres de las salidas van entre las
+  filas c y d, y el valor de las resistencias entre la fila j y el riel, sin
+  tapar agujeros ni líneas.
+- Menú en pantallas de menos de 400 px: los nombres de las pestañas ya no se
+  cortan, y a 320 px el botón de tema vuelve a caber junto al título.
+
 ## [5.2.2] - 2026-10-12
 
 ### Agregado
@@ -157,6 +176,7 @@ Primera versión publicada en este repositorio.
 - Versiones iniciales: calculadora de mapas de Karnaugh, paso a paso, circuito,
   protoboard, teoría e informe en PDF.
 
+[5.3.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.3.0
 [5.2.2]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.2.2
 [5.2.1]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.2.1
 [5.2.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.2.0

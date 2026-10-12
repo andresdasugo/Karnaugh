@@ -5,7 +5,7 @@
 [![Pruebas](https://github.com/andresdasugo/Karnaugh/actions/workflows/ci.yml/badge.svg)](https://github.com/andresdasugo/Karnaugh/actions/workflows/ci.yml)
 [![Publicación](https://github.com/andresdasugo/Karnaugh/actions/workflows/pages.yml/badge.svg)](https://github.com/andresdasugo/Karnaugh/actions/workflows/pages.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
-![Versión](https://img.shields.io/badge/versión-5.2.2-informational)
+![Versión](https://img.shields.io/badge/versión-5.3.0-informational)
 
 ### ▶ [Abrir el laboratorio](https://andresdasugo.github.io/Karnaugh/)
 
@@ -17,16 +17,19 @@ Funciona en cualquier navegador moderno (Chrome, Edge, Firefox, Safari), en comp
 
 ## Qué puedes hacer
 
+El menú tiene dos grupos: las cinco primeras pestañas trabajan con la función que defines en la Calculadora, en el orden en que se usan (de la ecuación al montaje y al informe); las otras tres son independientes.
+
 | Pestaña | Para qué sirve |
 | --- | --- |
 | **Calculadora** | Define la función tocando el mapa o la tabla de verdad, escribiéndola como ecuación (`a'b + c(a + !d)`) o como lista ∑m / ∏M, con condiciones de no importa (X). Obtén al instante la SOP y la POS mínimas, las formas canónicas, el costo en compuertas, los riesgos estáticos, el diagrama de tiempos y la exportación a VHDL, Verilog, C/Arduino, Python, LaTeX y Logisim, cada una con su **banco de prueba (testbench)**. |
 | **Paso a paso** | El procedimiento completo explicado: con el mapa (como se hace a mano) o con el método tabular de **Quine–McCluskey** y el método de **Petrick**. |
-| **Práctica** | Ejercicios aleatorios: forma tú los grupos, recibe retroalimentación y un puntaje, y comprueba tu ecuación final. |
-| **Multisalida** | Circuitos de varias salidas con términos compartidos: decodificador BCD a 7 segmentos, sumador completo, comparador, BCD a exceso 3, decodificador 2 a 4, binario a Gray o tu propio diseño. Se exportan a VHDL y Verilog con banco de prueba, y a Logisim con vector de prueba. |
 | **Circuito** | Diagrama lógico con AND-OR, solo NAND, solo NOR o XOR, compuertas de 2 o hasta 4 entradas y la lista de integrados 74LS / 74HC. Interruptores interactivos para simularlo. |
 | **Protoboard** | Montaje sugerido en protoboard con guía cable por cable, lista de cableado descargable en CSV y notas para energizar sin dañar los integrados. |
-| **Teoría** | Curso interactivo: álgebra de Boole, mintérminos y maxitérminos, código Gray, adyacencias, grupos máximos, mapas de 5 y 6 variables, riesgos, NAND/NOR, integrados 74xx, autoevaluación, glosario y bibliografía. |
 | **Informe** | Genera un informe en PDF listo para entregar, con la tabla, los mapas, el procedimiento, el circuito y el montaje. |
+| | *Herramientas independientes de la calculadora:* |
+| **Multisalida** | Circuitos de varias salidas con términos compartidos: decodificador BCD a 7 segmentos, sumador completo, comparador, BCD a exceso 3, decodificador 2 a 4, binario a Gray o tu propio diseño. Se exportan a VHDL y Verilog con banco de prueba, y a Logisim con vector de prueba. |
+| **Teoría** | Curso interactivo: álgebra de Boole, mintérminos y maxitérminos, código Gray, adyacencias, grupos máximos, mapas de 5 y 6 variables, riesgos, NAND/NOR, integrados 74xx, autoevaluación, glosario y bibliografía. |
+| **Práctica** | Ejercicios aleatorios: forma tú los grupos, recibe retroalimentación y un puntaje, y comprueba tu ecuación final. |
 
 Otras características:
 

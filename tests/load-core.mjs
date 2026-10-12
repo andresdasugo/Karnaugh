@@ -1,5 +1,10 @@
+// Laboratorio Karnaugh · Copyright (c) 2026 andresdasugo · Licencia MIT (ver LICENSE)
+// SPDX-License-Identifier: MIT
+//
 // Carga el núcleo lógico (objeto K) directamente desde index.html,
 // para que las pruebas usen exactamente el mismo código que ve el estudiante.
+// Busca el <script> que contiene el núcleo y lo ejecuta en un contexto aislado
+// de Node.js (vm), donde el núcleo se exporta con module.exports.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';

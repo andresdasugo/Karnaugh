@@ -1,4 +1,31 @@
 <!doctype html>
+<!--
+  Laboratorio Karnaugh · versión 5.2.2
+  Simplifica, entiende y arma funciones lógicas con mapas de Karnaugh.
+
+  Copyright (c) 2026 andresdasugo
+  Licencia MIT: ver el archivo LICENSE.  SPDX-License-Identifier: MIT
+  Repositorio: https://github.com/andresdasugo/Karnaugh
+  Sitio:       https://andresdasugo.github.io/Karnaugh/
+
+  Toda la aplicación está en este archivo: es una sola página web, sin
+  compilación ni servidor. Se ejecuta completa en el navegador del usuario.
+
+  Organización del archivo:
+    1. <head> y <style>  Metadatos y hoja de estilos (ver su encabezado).
+    2. <body>            Encabezado con las pestañas y una <section class="view">
+                         por pestaña: Calculadora, Paso a paso, Práctica,
+                         Multisalida, Circuito, Protoboard, Teoría e Informe.
+    3. jsPDF             Librería para el informe en PDF (vendor/jspdf, MIT).
+    4. Primer <script>   Núcleo lógico, el objeto K, sin acceso a la página:
+                         geometría del mapa, Quine–McCluskey, cobertura mínima,
+                         analizador de ecuaciones, circuitos e integrados 74xx,
+                         exportación a VHDL, Verilog, C y Python con bancos de
+                         prueba, y a Logisim-evolution. Las pruebas automáticas
+                         (carpeta tests/) lo cargan directamente desde aquí.
+    5. Segundo <script>  Interfaz: estado, dibujos SVG y lógica de cada pestaña,
+                         informe PDF y arranque (función init, al final).
+-->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -6,7 +33,7 @@
 <title>Laboratorio Karnaugh</title>
 <meta name="description" content="Simplifica funciones lógicas con mapas de Karnaugh de 2 a 6 variables: SOP y POS mínimas, paso a paso con Quine–McCluskey, práctica, circuitos de varias salidas, protoboard, teoría e informe en PDF.">
 <meta name="application-name" content="Laboratorio Karnaugh">
-<meta name="version" content="5.2.1">
+<meta name="version" content="5.2.2">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Laboratorio Karnaugh">
 <meta property="og:description" content="Simplifica, entiende y arma funciones lógicas con mapas de Karnaugh, directamente en el navegador.">
@@ -17,6 +44,24 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700;800&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&family=Barlow:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
+/* =====================================================================
+   Hoja de estilos
+   Los colores, tipografías y radios se definen como variables (--bg, --ink,
+   --accent…) en :root, y se redefinen para el tema oscuro con
+   prefers-color-scheme y con [data-theme="dark"] (el botón de tema).
+   Las reglas están en capas que se aplican en orden; las posteriores
+   ajustan a las anteriores:
+     1. Base: barra superior, paneles, controles, mapa, DIP, resultados,
+        tabla de verdad, paso a paso, circuito, protoboard, teoría, informe.
+     2. «Versión 3» y «Versión 4»: ajustes para celular, práctica,
+        protoboard, teoría y multisalida.
+     3. «Identidad v5»: colores (grafito sobre gris salvia), tipografías
+        Atkinson Hyperlegible Next y STIX Two Text, la ecuación protagonista,
+        notación ∑/∏ y contraste AA.
+     4. Menú superior: lo pasa a su propia fila cuando no cabe (ver fitTabs).
+   Los colores --g0 … --g7 son los de las bandas de una resistencia y
+   se usan para distinguir los grupos del mapa.
+   ===================================================================== */
 :root{
   --bg:#E8ECF1; --surface:#FFFFFF; --surface-2:#F3F5F8; --ink:#15223A; --muted:#56667D; --line:#C8D1DC; --line-2:#DDE3EA;
   --accent:#1D5BC0; --accent-ink:#FFFFFF; --accent-soft:#DCE7FA;
@@ -941,7 +986,21 @@ table.cost td.best{color:var(--ok-t)}
 <script src="vendor/jspdf/jspdf.umd.min.js"></script>
 <script>window.jspdf || document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>');</script>
 <script>
-/* ===== Núcleo lógico del Laboratorio Karnaugh (sin DOM) ===== */
+/* =====================================================================
+   Núcleo lógico del Laboratorio Karnaugh (sin DOM)
+   Todo lo que calcula la aplicación, sin tocar la página: así se puede
+   probar fuera del navegador (tests/load-core.mjs lo carga en Node.js).
+
+   Convenciones:
+   - Una función de n variables es su tabla de verdad `vals`: un arreglo de
+     2^n valores (0, 1 o 2 = no importa, X). El índice de cada fila es el
+     número binario de sus entradas, con la primera variable como bit más
+     significativo (fila 5 de A, B, C = 101 → A = 1, B = 0, C = 1).
+   - Un grupo (término) es { v, m, cov }: `m` marca con 1 los bits de las
+     variables que cambian dentro del grupo (y se eliminan), `v` el valor de
+     las que permanecen y `cov` la lista de celdas que cubre.
+   - Una netlist es la lista de compuertas del circuito (ver Builder).
+   ===================================================================== */
 const K = (() => {
   const popcount = x => { let c = 0; while (x) { c += x & 1; x >>>= 1; } return c; };
   const gray = i => i ^ (i >> 1);
@@ -949,16 +1008,32 @@ const K = (() => {
   const bin = (x, n) => x.toString(2).padStart(n, '0');
 
   /* ---------- Geometría del mapa ---------- */
+  /**
+   * Geometría lógica del mapa de n variables (2 a 6).
+   * Con más de 4 variables se usan 2 o 4 submapas de 4×4 (convención de superposición):
+   * las primeras s = n − 4 variables eligen el submapa, las siguientes rv las filas y
+   * las últimas cv las columnas, todas en código Gray.
+   * @param {number} n número de variables
+   * @returns {{n, s, rv, cv, rows, cols, subs, subRows, subCols}}
+   */
   function layout(n) {
     const s = n > 4 ? n - 4 : 0, m = n - s;
     const rv = Math.floor(m / 2), cv = m - rv;
     return { n, s, rv, cv, rows: 1 << rv, cols: 1 << cv, subs: 1 << s,
       subRows: s === 2 ? 2 : 1, subCols: s >= 1 ? 2 : 1 };
   }
+  /**
+   * Índice de la tabla de verdad (número de mintérmino) de la celda que está en el
+   * submapa `sub`, fila `r` y columna `c` (posiciones de dibujo, de 0 en adelante).
+   * Las filas y columnas se convierten a binario con el código Gray.
+   */
   function cellIndex(n, sub, r, c) {
     const L = layout(n);
     return (sub << (L.rv + L.cv)) | (gray(r) << L.cv) | gray(c);
   }
+  /**
+   * Inversa de cellIndex: posición { sub, r, c } en el dibujo del mintérmino `idx`.
+   */
   function cellPos(n, idx) {
     const L = layout(n);
     const c = invGray(idx & ((1 << L.cv) - 1));
@@ -968,6 +1043,19 @@ const K = (() => {
   }
 
   /* ---------- Quine-McCluskey ---------- */
+  /**
+   * Método de Quine–McCluskey.
+   * Cada término se representa con dos números de n bits: `m` marca los bits eliminados
+   * (los «–» del método) y `v` los valores de los bits que quedan. Dos términos con el
+   * mismo `m` que difieren en un solo bit de `v` se combinan en uno con ese bit eliminado.
+   * Se repite hasta que no haya combinaciones; los términos que nunca se combinaron son
+   * los grupos máximos (implicantes primos).
+   * @param {number} n número de variables
+   * @param {number[]} ones celdas que hay que cubrir (unos en SOP, ceros en POS)
+   * @param {number[]} dcs  condiciones de no importa (X)
+   * @returns {{iterations: object[][], primes: object[]}} cada columna del método y los
+   *   grupos máximos { v, m, cov } (cov = celdas que cubre), los más grandes primero
+   */
   function qm(n, ones, dcs) {
     let cur = [...new Set([...ones, ...dcs])].sort((a, b) => a - b)
       .map(x => ({ v: x, m: 0, cov: [x], used: false, dcOnly: dcs.includes(x) }));
@@ -998,6 +1086,18 @@ const K = (() => {
   }
 
   /* ---------- Cobertura exacta (esenciales + ramificación y poda) ---------- */
+  /**
+   * Cobertura mínima exacta: elige qué grupos máximos usar.
+   * 1. Toma los esenciales (únicos que cubren alguna celda).
+   * 2. Para lo que falta, búsqueda exhaustiva con ramificación y poda: minimiza
+   *    primero el número de grupos y luego el de literales (costo = grupos·1000 + literales),
+   *    empieza por la celda con menos opciones y descarta ramas que no pueden mejorar.
+   *    Guarda hasta 8 soluciones empatadas y se detiene tras 250 000 nodos (exact = false).
+   * @param {number} n número de variables
+   * @param {object[]} primes grupos máximos (de qm)
+   * @param {number[]} req celdas que hay que cubrir
+   * @returns {{covers: Map, essentials: number[], remaining: number[], extraSets, solutions: number[][], exact: boolean, nodes: number}}
+   */
   function cover(n, primes, req) {
     const lit = p => n - popcount(p.m);
     const covers = new Map();
@@ -1012,6 +1112,10 @@ const K = (() => {
     const cost = sel => sel.length * 1000 + sel.reduce((s, i) => s + lit(primes[i]), 0);
     const cand = [...new Set(remaining.flatMap(mt => covers.get(mt)))];
     const maxCov = Math.max(1, ...cand.map(i => primes[i].cov.filter(x => remaining.includes(x)).length));
+    /* rec: ramificación y poda. `sel` son los grupos elegidos hasta ahora y `unc`
+       las celdas aún sin cubrir. Se ramifica sobre la celda con menos opciones,
+       probando primero los grupos que cubren más, y se poda si ni con la mejor
+       suerte (lb grupos más) se puede igualar la mejor solución encontrada. */
     function rec(sel, unc) {
       if (++nodes > 250000) { aborted = true; return; }
       if (!unc.length) {
@@ -1041,6 +1145,11 @@ const K = (() => {
   }
 
   /* ---------- Términos ---------- */
+  /**
+   * Literales de un término: la lista de variables que no cambian dentro del grupo.
+   * En SOP se niega la variable que vale 0 en el grupo; en POS, la que vale 1.
+   * @returns {{v: number, neg: boolean}[]} v = índice de la variable
+   */
   function termLits(n, p, pos) {
     const lits = [];
     for (let i = 0; i < n; i++) {
@@ -1051,6 +1160,9 @@ const K = (() => {
     }
     return lits;
   }
+  /**
+   * Patrón binario del término, como en las tablas de Quine–McCluskey: «01–1».
+   */
   function pattern(n, p) {
     let s = '';
     for (let i = 0; i < n; i++) { const bit = 1 << (n - 1 - i); s += (p.m & bit) ? '–' : ((p.v & bit) ? '1' : '0'); }
@@ -1058,6 +1170,15 @@ const K = (() => {
   }
 
   /* ---------- Minimización completa ---------- */
+  /**
+   * Simplificación completa de una función: Quine–McCluskey + cobertura mínima.
+   * @param {number} n número de variables
+   * @param {number[]} vals tabla de verdad: 0, 1 o 2 (no importa), una entrada por fila
+   * @param {boolean} pos true = producto de sumas (agrupa ceros); false = suma de productos
+   * @returns {{form, req, dcs, constant?, qm, primes, cover, chosen, terms, alternatives}}
+   *   `constant` existe solo si la función es constante; `terms` es la solución elegida y
+   *   `alternatives` todas las soluciones de igual costo.
+   */
   function minimize(n, vals, pos) {
     const N = 1 << n;
     const target = pos ? 0 : 1;
@@ -1080,6 +1201,17 @@ const K = (() => {
   /* ---------- Parser de expresiones ---------- */
   const KW = { AND: '*', OR: '+', NOT: '!', XOR: '^', NAND: 'N', NOR: 'R', XNOR: 'X' };
   const RESERVED = Object.keys(KW);
+  /**
+   * Analizador de ecuaciones booleanas (descenso recursivo).
+   * Acepta A', !A, ~A, NOT A; AB, A*B, A·B, A AND B; A+B, A|B, A OR B; XOR (^ ⊕),
+   * NAND (↑), NOR (↓), XNOR (⊙), constantes 0 y 1, y paréntesis. El producto puede ser
+   * implícito (AB). Precedencia, de menor a mayor: OR/NOR, XOR/XNOR, AND/NAND, negación.
+   * Los nombres se reconocen sin distinguir mayúsculas, probando primero los más largos.
+   * @param {string} src ecuación escrita por el usuario
+   * @param {string[]} names nombres de las variables
+   * @returns árbol { op: 'var'|'const'|'not'|'and'|'or'|'xor', ... }
+   * @throws Error con un mensaje en español que indica qué símbolo falló
+   */
   function parseExpr(src, names) {
     const sorted = names.map((nm, i) => ({ nm, up: nm.toUpperCase(), i })).sort((a, b) => b.nm.length - a.nm.length);
     const toks = [];
@@ -1132,6 +1264,9 @@ const K = (() => {
     if (p < toks.length) throw new Error(`Sobra el símbolo «${toks[p].t === 'v' ? names[toks[p].v] : (toks[p].kw || toks[p].t)}».`);
     return ast;
   }
+  /**
+   * Evalúa el árbol de parseExpr con los valores de las variables (bits[i] = 0 o 1).
+   */
   function evalAst(ast, bits) {
     switch (ast.op) {
       case 'var': return bits[ast.v];
@@ -1142,6 +1277,9 @@ const K = (() => {
       case 'xor': return evalAst(ast.a, bits) ^ evalAst(ast.b, bits);
     }
   }
+  /**
+   * Tabla de verdad de una ecuación: evalúa el árbol en las 2^n combinaciones.
+   */
   function exprToVals(src, n, names) {
     const ast = parseExpr(src, names.slice(0, n));
     const vals = [];
@@ -1151,6 +1289,10 @@ const K = (() => {
     }
     return vals;
   }
+  /**
+   * Convierte un texto como «1, 3, 5» (separado por comas, espacios o punto y coma) en
+   * una lista ordenada y sin repetidos; da error si algún índice no existe con N filas.
+   */
   function parseList(str, N) {
     const nums = (str.match(/\d+/g) || []).map(Number);
     const bad = nums.filter(x => x >= N);
@@ -1159,6 +1301,12 @@ const K = (() => {
   }
 
   /* ---------- Netlist de compuertas ---------- */
+  /**
+   * Constructor de netlists (lista de compuertas) con reutilización: si se pide dos
+   * veces la misma compuerta con las mismas entradas, se devuelve la misma. Así un
+   * inversor o un término compartido se arma una sola vez.
+   * Cada nodo es { id, t: tipo ('IN','NOT','AND','OR','NAND','NOR','XOR','C0','C1'), in: [ids], v }.
+   */
   function Builder(n) {
     const nodes = [], map = new Map();
     function mk(t, ins, extra) {
@@ -1171,6 +1319,10 @@ const K = (() => {
     }
     return { nodes, mk, inp: v => mk('IN', [], v) };
   }
+  /**
+   * Compuerta de tipo `t` con las entradas `ins`, respetando el máximo de entradas por
+   * compuerta (`maxIn`): si hay más, se arma en cascada (por ejemplo ABC = (AB)·C).
+   */
   function tree(B, t, ins, maxIn) {
     if (ins.length === 1) return ins[0];
     if (ins.length <= maxIn) return B.mk(t, ins);
@@ -1181,6 +1333,10 @@ const K = (() => {
     }
     return tree(B, t, g, maxIn);
   }
+  /**
+   * Elimina de la netlist los nodos que no llegan a ninguna salida y renumera los que
+   * quedan. Con keepInputs se conservan todas las entradas aunque no se usen.
+   */
   function gc(nodes, out, keepInputs) {
     const roots = Array.isArray(out) ? out : [out];
     const keep = new Set();
@@ -1193,6 +1349,11 @@ const K = (() => {
     const outs = roots.map(r => remap.get(r));
     return { nodes: nn, out: outs[0], outs };
   }
+  /**
+   * Netlist del circuito de una salida: AND-OR para la SOP u OR-AND para la POS, con
+   * inversores para los literales negados. Si la familia es 'nand' o 'nor', se
+   * convierte a compuertas universales con universal().
+   */
   function buildNetlist(n, sol, family, maxIn) {
     // sol: {constant?, terms:[implicants], form}
     const B = Builder(n);
@@ -1210,7 +1371,10 @@ const K = (() => {
     if (family === 'nand' || family === 'nor') net = universal(net, family);
     return net;
   }
-  /* XOR / XNOR con compuertas de 2 entradas (74LS86) */
+  /**
+   * Netlist de una función XOR/XNOR (paridad) con compuertas XOR de 2 entradas (74LS86):
+   * `mask` indica qué variables entran y `inv` si se niega la salida.
+   */
   function buildXor(n, mask, inv) {
     const B = Builder(n);
     for (let v = 0; v < n; v++) B.inp(v);
@@ -1219,7 +1383,10 @@ const K = (() => {
     if (inv) out = B.mk('NOT', [out]);
     return gc(B.nodes, out);
   }
-  /* varias salidas con términos producto (o suma) compartidos */
+  /**
+   * Netlist de varias salidas que comparten compuertas: los términos iguales de
+   * distintas salidas se arman una sola vez (gracias a Builder).
+   */
   function buildMulti(n, sols, family, maxIn) {
     const B = Builder(n);
     for (let v = 0; v < n; v++) B.inp(v);
@@ -1234,6 +1401,10 @@ const K = (() => {
     if (family === 'nand' || family === 'nor') { const keepOuts = net.outs; net = universal(net, family); }
     return net;
   }
+  /**
+   * Comprueba que la netlist de varias salidas reproduce cada tabla de verdad
+   * (sin comparar las X).
+   */
   function verifyMulti(net, n, valsList) {
     for (let i = 0; i < (1 << n); i++) {
       const bits = []; for (let k = 0; k < n; k++) bits.push((i >> (n - 1 - k)) & 1);
@@ -1242,6 +1413,12 @@ const K = (() => {
     }
     return true;
   }
+  /**
+   * Convierte una netlist AND/OR/NOT en una de solo NAND o solo NOR aplicando
+   * De Morgan: AND = NAND + inversor; OR = NAND con entradas invertidas (y lo dual
+   * para NOR). Las dobles negaciones se cancelan, y un inversor es una NAND (o NOR)
+   * con sus entradas unidas.
+   */
   function universal(net, fam) {
     const B = Builder(0);
     const U = fam === 'nand' ? 'NAND' : 'NOR';
@@ -1261,6 +1438,11 @@ const K = (() => {
     const outs = (net.outs || [net.out]).map(tr);
     return gc(B.nodes, net.outs && net.outs.length > 1 ? outs : outs[0], true);
   }
+  /**
+   * Simula la netlist para una combinación de entradas. Como los nodos se crean en
+   * orden (cada compuerta después de sus entradas), basta un recorrido.
+   * @returns {number[]} valor de cada nodo
+   */
   function evalNet(net, bits) {
     const val = [];
     for (const nd of net.nodes) {
@@ -1280,6 +1462,9 @@ const K = (() => {
     }
     return val;
   }
+  /**
+   * Comprueba que la netlist de una salida reproduce la tabla de verdad (sin las X).
+   */
   function verifyNet(net, n, vals) {
     for (let i = 0; i < (1 << n); i++) {
       if (vals[i] === 2) continue;
@@ -1306,10 +1491,20 @@ const K = (() => {
     '74HC4002': { fn: 'NOR', k: 4, name: '2 NOR de 4 entradas (CMOS)', pins: [[2, 3, 4, 5, 1], [9, 10, 11, 12, 13]] },
     '74LS86': { fn: 'XOR', k: 2, name: '4 XOR de 2 entradas', pins: [[1, 2, 3], [4, 5, 6], [10, 9, 8], [13, 12, 11]] },
   };
+  /**
+   * Integrado 74xx que corresponde a una compuerta según su tipo y número de entradas.
+   */
   function chipFor(nd) {
     const k = Math.max(nd.in.length, nd.t === 'NOT' ? 1 : 2);
     return Object.keys(CHIPS).find(c => CHIPS[c].fn === nd.t && CHIPS[c].k === k);
   }
+  /**
+   * Asigna las compuertas a integrados (U1, U2…) y a pines concretos.
+   * Ordena las compuertas recorriendo el circuito desde la salida para que las que
+   * están conectadas queden en el mismo integrado o en integrados vecinos, lo que
+   * acorta los cables en la protoboard.
+   * @returns {{chips: {type, label, gates}[], where: Map(idCompuerta → {chip, slot, inPins, outPin}), gates}}
+   */
   function allocate(net) {
     const isG = nd => !['IN', 'C0', 'C1'].includes(nd.t);
     const gates = net.nodes.filter(isG);
@@ -1339,6 +1534,9 @@ const K = (() => {
     });
     return { chips, where, gates };
   }
+  /**
+   * Costo de una netlist: número de compuertas, entradas totales, integrados y lista de materiales.
+   */
   function netStats(net) {
     const g = net.nodes.filter(nd => !['IN', 'C0', 'C1'].includes(nd.t));
     const al = allocate(net);
@@ -1350,6 +1548,13 @@ const K = (() => {
 
   /* ---------- Utilidades didácticas ---------- */
   const inCube = (i, p) => (i & ~p.m) === (p.v & ~p.m);
+  /**
+   * Riesgos estáticos: pares de celdas vecinas que valen lo mismo (1 en SOP, 0 en POS)
+   * pero no comparten ningún grupo; al pasar de una a otra la salida puede dar un pulso
+   * falso. También propone, con un algoritmo voraz, los grupos máximos de consenso
+   * que los eliminan.
+   * @returns {{pairs: [number, number][], fix: object[]}}
+   */
   function hazards(n, vals, res, primes) {
     if (!res || res.constant !== undefined) return { pairs: [], fix: [] };
     const target = res.form === 'pos' ? 0 : 1, pairs = [];
@@ -1367,6 +1572,11 @@ const K = (() => {
     }
     return { pairs, fix };
   }
+  /**
+   * Detecta si la función es un XOR (o XNOR) de un subconjunto de variables, respetando
+   * las X. Devuelve el que usa menos variables, o null.
+   * @returns {{mask, inv, k} | null}
+   */
   function xorForm(n, vals) {
     let best = null;
     for (let S = 1; S < (1 << n); S++) {
@@ -1379,6 +1589,11 @@ const K = (() => {
     }
     return best;
   }
+  /**
+   * Método de Petrick: multiplica el producto de sumas de grupos y simplifica con la
+   * absorción (X + XY = X). Devuelve los productos de menor a mayor tamaño, o null si
+   * pasan de `limit` (la expansión crece muy rápido).
+   */
   function petrickExpand(factors, limit) {
     let terms = [[]];
     for (const f of factors) {
@@ -1389,6 +1604,13 @@ const K = (() => {
     }
     return terms.sort((a, b) => a.length - b.length);
   }
+  /**
+   * Valida un grupo formado por el estudiante (pestañas Teoría y Práctica): que tenga
+   * 1, 2, 4, 8… celdas, que sean un rectángulo de vecinas (contando los bordes), que solo
+   * contenga celdas del valor buscado o X y que no sea solo X. Si es válido, dice si es
+   * máximo y, si no, con qué celdas se podría agrandar.
+   * @returns {{ok, why?, bad?, p?, prime?, grow?}}
+   */
   function cubeInfo(n, vals, cells, target) {
     const N = 1 << n;
     if (!cells.length) return { ok: false, why: 'empty' };
@@ -1411,18 +1633,44 @@ const K = (() => {
     return { ok: true, p, prime: !grow.length, grow };
   }
 
-  /* ---------- Exportación a lenguajes y bancos de prueba (testbench) ----------
-     spec = { n, entity, title, ins: [nombres], outs: [{ name, sol, vals }] }
-     sol: resultado de minimize (o equivalente); vals: tabla de verdad esperada (0, 1, 2 = no importa) */
+  /* ======================================================================
+     Exportación a lenguajes y bancos de prueba (testbench)
+     ----------------------------------------------------------------------
+     Todas las funciones de esta sección reciben una «especificación»:
+       spec = {
+         n:      número de entradas,
+         entity: nombre del módulo/entidad (p. ej. 'funcion_k'),
+         title:  descripción que se copia en los comentarios,
+         ins:    nombres de las entradas, en orden (la primera es el bit más significativo),
+         outs:   [{ name, sol, vals }] una por salida, donde
+                 sol  = resultado de minimize() con los términos elegidos,
+                 vals = tabla de verdad esperada (0, 1 o 2 = no importa).
+       }
+     El código generado es ASCII puro (sin tildes) para que ninguna herramienta
+     lo rechace, y está comentado para que el estudiante entienda cada parte.
+     Las pruebas de tests/export.test.mjs compilan y ejecutan todo lo que se genera
+     aquí con GHDL, Icarus Verilog, gcc y Python.
+     ====================================================================== */
+
+  /* Nombres internos de los bancos de prueba: ninguna variable del usuario puede llamarse así. */
   const TB_INTERNAL = 'k_i k_v k_s k_err uut prueba logica funcion_k funcion_k_tb circuito_k circuito_k_tb main';
+  /* Palabras reservadas de cada lenguaje (y algunos nombres de biblioteca) que no sirven como identificador. */
   const KW_LANG = {
     vhdl: 'abs access after alias all and architecture array assert attribute begin block body buffer bus case component configuration constant disconnect downto else elsif end entity exit file for function generate generic group guarded if impure in inertial inout is label library linkage literal loop map mod nand new next nor not null of on open or others out package port postponed procedure process pure range record register reject rem report return rol ror select severity signal shared sla sll sra srl subtype then to transport type unaffected units until use variable wait when while with xnor xor std ieee work string natural integer unsigned',
     v: 'always and assign automatic begin buf bufif0 bufif1 case casex casez cell cmos config deassign default defparam design disable edge else end endcase endconfig endfunction endgenerate endmodule endprimitive endspecify endtable endtask event for force forever fork function generate genvar highz0 highz1 if ifnone incdir include initial inout input instance integer join large liblist library localparam macromodule medium module nand negedge nmos nor not notif0 notif1 or output parameter pmos posedge primitive pull0 pull1 pulldown pullup rcmos real realtime reg release repeat rnmos rpmos rtran rtranif0 rtranif1 scalared signed small specify specparam strong0 strong1 supply0 supply1 table task time tran tranif0 tranif1 tri tri0 tri1 triand trior trireg unsigned use uwire vectored wait wand weak0 weak1 while wire wor xnor xor bit byte int logic',
     c: 'auto break case char const continue default do double else enum extern float for goto if inline int long register restrict return short signed sizeof static struct switch typedef union unsigned void volatile while bool true false printf HIGH LOW',
     py: 'False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield print int bool range',
   };
+  /* Quita tildes y cambia por «?» cualquier carácter fuera del ASCII imprimible. */
   const ascii = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7E]/g, '?');
-  /* identificadores válidos y únicos (sin distinguir mayúsculas) para entradas y salidas */
+
+  /**
+   * Convierte nombres de variables en identificadores válidos para un lenguaje:
+   * quita tildes y símbolos, evita que empiecen con número, agrega «_s» a las
+   * palabras reservadas y «_out» (o un número) si un nombre ya está en uso.
+   * La comparación de repetidos no distingue mayúsculas (VHDL no las distingue).
+   * Ejemplo: idents(['in', 'F', 'F'], 'vhdl') → ['in_s', 'F', 'F_out'].
+   */
   function idents(names, lang) {
     const ci = lang === 'vhdl', kw = new Set((KW_LANG[lang] + ' ' + TB_INTERNAL).split(' ').map(w => ci ? w.toLowerCase() : w));
     const used = new Set();
@@ -1435,126 +1683,272 @@ const K = (() => {
       return id;
     });
   }
+  /* Operadores lógicos y constantes de cada lenguaje. */
   const OPS = {
     vhdl: { not: x => 'not ' + x, and: ' and ', or: ' or ', c: ["'0'", "'1'"] },
     v: { not: x => '~' + x, and: ' & ', or: ' | ', c: ["1'b0", "1'b1"] },
     c: { not: x => '!' + x, and: ' && ', or: ' || ', c: ['false', 'true'] },
     py: { not: x => 'not ' + x, and: ' and ', or: ' or ', c: ['False', 'True'] },
   };
+  /**
+   * Escribe cada término de la solución en la sintaxis del lenguaje.
+   * En SOP cada término es un producto (AND de literales); en POS, una suma (OR).
+   * Los términos de varios literales van entre paréntesis cuando hay más de uno,
+   * para que la precedencia no dependa del lenguaje.
+   * Devuelve [{ code, cells }]: el texto del término y las celdas (grupo) que cubre.
+   */
+  function termsLang(lang, n, ids, sol) {
+    const o = OPS[lang], pos = sol.form === 'pos', inner = pos ? o.or : o.and;
+    const terms = sol.terms.map(p => ({ L: termLits(n, p, pos).map(l => l.neg ? o.not(ids[l.v]) : ids[l.v]), cells: p.cov }));
+    return terms.map(t => ({ code: t.L.length > 1 && terms.length > 1 ? '(' + t.L.join(inner) + ')' : t.L.join(inner), cells: t.cells }));
+  }
+  /** Expresión completa de una salida en la sintaxis del lenguaje (o su constante). */
   function exprLang(lang, n, ids, sol) {
     const o = OPS[lang];
     if (sol.constant !== undefined) return o.c[sol.constant];
-    const pos = sol.form === 'pos', inner = pos ? o.or : o.and, outer = pos ? o.and : o.or;
-    const terms = sol.terms.map(p => termLits(n, p, pos).map(l => l.neg ? o.not(ids[l.v]) : ids[l.v]));
-    return terms.map(L => L.length > 1 && terms.length > 1 ? '(' + L.join(inner) + ')' : L.join(inner)).join(outer);
+    return termsLang(lang, n, ids, sol).map(t => t.code).join(sol.form === 'pos' ? o.and : o.or);
   }
+  /** Identificadores de entradas y salidas de una especificación, sin choques entre ellos. */
   function exportIds(spec, lang) {
     const all = idents([...spec.ins.slice(0, spec.n), ...spec.outs.map(o => o.name)], lang);
     return { ins: all.slice(0, spec.n), outs: all.slice(spec.n) };
   }
+  /* Tabla de verdad como texto: un carácter por fila ('0', '1' o '-' = no importa). */
   const expStr = vals => vals.map(v => v === 2 ? '-' : String(v)).join('');
-  const formTxt = sol => sol.constant !== undefined ? 'constante' : sol.form === 'pos' ? 'producto de sumas minimo' : 'suma de productos minima';
   const nRows = spec => 1 << spec.n;
+  /* Alinea comentarios a la derecha: [[código, comentario], …] → líneas con el comentario en la misma columna. */
+  const cols = (rows, cm, ind) => { const w = Math.max(...rows.map(r => r[0].length)); return rows.map(([c, t]) => `${ind}${c.padEnd(w)}   ${cm} ${t}`).join('\n'); };
+  /* Descripción de la forma de una salida, para los comentarios. */
+  function formTxt(sol, n) {
+    if (sol.constant !== undefined) return `constante: vale ${sol.constant} en todas las combinaciones`;
+    const lits = sol.terms.reduce((s, p) => s + n - popcount(p.m), 0), t = sol.terms.length;
+    return `${sol.form === 'pos' ? 'producto de sumas minimo' : 'suma de productos minima'} (${t} termino${t === 1 ? '' : 's'}, ${lits} literal${lits === 1 ? '' : 'es'})`;
+  }
+  /**
+   * Comentario que explica una salida: su forma y, término por término,
+   * qué grupo del mapa de Karnaugh lo produce. `cm` es el marcador de
+   * comentario del lenguaje ('--', '//' o '#').
+   */
+  function eqComment(lang, cm, n, ids, out, sol, ind) {
+    const lines = [`${cm} ${out}: ${formTxt(sol, n)}`];
+    if (sol.constant === undefined) {
+      const pos = sol.form === 'pos', M = pos ? 'M' : 'm', ts = termsLang(lang, n, ids, sol), w = Math.max(...ts.map(t => t.code.length));
+      lines.push(`${cm} Cada ${pos ? 'suma' : 'producto'} es un grupo de ${pos ? 'ceros' : 'unos'} del mapa de Karnaugh:`);
+      ts.forEach(t => lines.push(`${cm}   ${t.code.padEnd(w)}   <- grupo ${M}(${t.cells.join(',')})`));
+    }
+    return lines.map(l => ind + l).join('\n');
+  }
+
+  /**
+   * Código del circuito (el «diseño») en VHDL, Verilog, C o Python.
+   * VHDL y Verilog son módulos completos; C y Python, la ecuación lista para pegar.
+   */
   function designCode(lang, spec) {
-    const id = exportIds(spec, lang), e = spec.entity, N = nRows(spec);
-    const eqs = spec.outs.map((o, k) => ({ out: id.outs[k], expr: exprLang(lang, spec.n, id.ins, o.sol), sol: o.sol }));
-    if (lang === 'vhdl') return `-- ${ascii(spec.title)}
-${eqs.map(q => `-- ${q.out}: ${formTxt(q.sol)}`).join('\n')}
+    const id = exportIds(spec, lang), e = spec.entity, n = spec.n;
+    const eqs = spec.outs.map((o, k) => ({ out: id.outs[k], expr: exprLang(lang, n, id.ins, o.sol), sol: o.sol }));
+    const pad = Math.max(id.ins.join(', ').length, id.outs.join(', ').length);   // alinea los comentarios de los puertos
+    if (lang === 'vhdl') return `-- =====================================================================
+-- ${ascii(spec.title)}
+-- Circuito combinacional obtenido con el mapa de Karnaugh (Laboratorio Karnaugh).
+--
+-- Como leer este archivo:
+--   * library / use: habilitan el tipo STD_LOGIC, el "bit" de VHDL
+--     (ademas de '0' y '1' admite valores como 'X' = desconocido).
+--   * entity: la "caja negra" del circuito, vista desde afuera: sus
+--     entradas (in) y sus salidas (out).
+--   * architecture: lo que hay dentro de la caja. Cada salida es una
+--     asignacion concurrente (<=): se recalcula sola cada vez que cambia
+--     una entrada, igual que una compuerta real.
+--   * Operadores: not = negacion (A'), and = producto, or = suma.
+-- =====================================================================
 library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_1164.ALL;   -- define STD_LOGIC
 
 entity ${e} is
-  port ( ${id.ins.join(', ')} : in  STD_LOGIC;
-         ${id.outs.join(', ')} : out STD_LOGIC );
+  port ( ${id.ins.join(', ').padEnd(pad)} : in  STD_LOGIC;   -- entradas: una por variable
+         ${id.outs.join(', ').padEnd(pad)} : out STD_LOGIC ); -- salida${id.outs.length > 1 ? 's' : ''} del circuito
 end ${e};
 
 architecture logica of ${e} is
 begin
-${eqs.map(q => `  ${q.out} <= ${q.expr};`).join('\n')}
+${eqs.map(q => `${eqComment('vhdl', '--', n, id.ins, q.out, q.sol, '  ')}
+  ${q.out} <= ${q.expr};`).join('\n\n')}
 end logica;
 `;
-    if (lang === 'v') return `// ${ascii(spec.title)}
-${eqs.map(q => `// ${q.out}: ${formTxt(q.sol)}`).join('\n')}
-module ${e} (input ${id.ins.join(', ')}, output ${id.outs.join(', ')});
-${eqs.map(q => `  assign ${q.out} = ${q.expr};`).join('\n')}
+    if (lang === 'v') return `// =====================================================================
+// ${ascii(spec.title)}
+// Circuito combinacional obtenido con el mapa de Karnaugh (Laboratorio Karnaugh).
+//
+// Como leer este archivo:
+//   * module: la "caja negra" del circuito con sus entradas (input) y
+//     sus salidas (output).
+//   * assign: asignacion continua; la salida se recalcula sola cada vez
+//     que cambia una entrada, igual que una compuerta real.
+//   * Operadores: ~ = negacion (A'), & = AND (producto), | = OR (suma).
+// =====================================================================
+module ${e} (
+  input  ${id.ins.join(', ').padEnd(pad)},   // entradas: una por variable
+  output ${id.outs.join(', ').padEnd(pad)}    // salida${id.outs.length > 1 ? 's' : ''} del circuito
+);
+${eqs.map(q => `${eqComment('v', '//', n, id.ins, q.out, q.sol, '  ')}
+  assign ${q.out} = ${q.expr};`).join('\n\n')}
 endmodule
 `;
-    if (lang === 'c') return eqs.map(q => `bool ${q.out} = ${q.expr};`).join('\n');
-    if (lang === 'py') return eqs.map(q => `${q.out} = ${q.expr}`).join('\n');
+    if (lang === 'c') return `// ${ascii(spec.title)}
+// Cada variable es un bool que vale 0 o 1 (por ejemplo, el resultado de
+// digitalRead() en Arduino). Operadores: ! = NOT (A'), && = AND, || = OR.
+${eqs.map(q => `${eqComment('c', '//', n, id.ins, q.out, q.sol, '')}
+bool ${q.out} = ${q.expr};`).join('\n\n')}
+`;
+    if (lang === 'py') return `# ${spec.title}
+# Cada variable vale 0 o 1 (o False / True).
+# Operadores: not = negación (A'), and = producto, or = suma.
+${eqs.map(q => `${eqComment('py', '#', n, id.ins, q.out, q.sol, '')}
+${q.out} = ${q.expr}`).join('\n\n')}
+`;
     throw new Error('Lenguaje sin diseño: ' + lang);
   }
+
+  /**
+   * Banco de prueba (testbench) en VHDL, Verilog, C o Python.
+   * Recorre las 2^n combinaciones de entrada (las filas de la tabla de verdad),
+   * calcula cada salida con la ecuación simplificada y la compara con la tabla
+   * de verdad ORIGINAL (spec.outs[].vals), sin comparar las filas X. Así se
+   * comprueba la simplificación, no la ecuación contra sí misma. Al final
+   * informa «Prueba superada» o cada fila que falla (y termina con error).
+   */
   function testbench(lang, spec) {
     const id = exportIds(spec, lang), e = spec.entity, n = spec.n, N = nRows(spec);
     const outs = spec.outs.map((o, k) => ({ id: id.outs[k], esp: expStr(o.vals), sol: o.sol, vals: o.vals }));
     const okMsg = `Prueba superada: las ${N} filas coinciden con la tabla de verdad.`;
-    const head = `${ascii(spec.title)}: recorre las ${N} combinaciones de entrada y compara cada salida con la tabla de verdad (las filas X no se comparan).`;
-    if (lang === 'vhdl') return `-- Banco de prueba (testbench) de ${e}.
--- ${head}
--- Con GHDL:  ghdl -a ${e}.vhd ${e}_tb.vhd && ghdl -e ${e}_tb && ghdl -r ${e}_tb
+    const msb = id.ins[0], lsb = id.ins[n - 1];
+    if (lang === 'vhdl') return `-- =====================================================================
+-- Banco de prueba (testbench) de ${e}
+-- ${ascii(spec.title)}
+--
+-- Que es un banco de prueba: un circuito "de laboratorio", sin entradas
+-- ni salidas propias, que contiene al circuito que queremos probar (uut,
+-- "unit under test"), le aplica las ${N} combinaciones de entrada y compara
+-- cada salida con la tabla de verdad. Es lo mismo que recorrer la tabla
+-- con el DIP y mirar el LED, pero automatico.
+--
+-- Como simularlo con GHDL:
+${cols([[`ghdl -a ${e}.vhd ${e}_tb.vhd`, 'analiza: revisa los dos archivos'], [`ghdl -e ${e}_tb`, 'elabora: arma el circuito de prueba'], [`ghdl -r ${e}_tb`, 'ejecuta la simulacion']], '<-', '--   ')}
+-- En ModelSim, Quartus o Vivado: agrega los dos archivos y simula ${e}_tb.
+-- Al final aparece "Prueba superada" o la lista de filas que fallan.
+-- =====================================================================
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.ALL;
+use IEEE.NUMERIC_STD.ALL;   -- unsigned y to_unsigned: para contar en binario
 
+-- La entidad de un banco de prueba no tiene puertos: todo ocurre adentro.
 entity ${e}_tb is
 end ${e}_tb;
 
 architecture prueba of ${e}_tb is
+  -- Conexiones con el circuito: las entradas las maneja el banco de prueba...
   signal ${id.ins.join(', ')} : STD_LOGIC := '0';
+  -- ...y las salidas las produce el circuito.
   signal ${id.outs.join(', ')} : STD_LOGIC;
-  -- valor esperado de cada salida en las filas 0 a ${N - 1} ('-' = no importa)
+
+  -- Tabla de verdad esperada de cada salida: el caracter k corresponde a la
+  -- fila k-1 (los string de VHDL empiezan en 1). '-' = no importa.
 ${outs.map(o => `  constant ESP_${o.id} : string(1 to ${N}) := "${o.esp}";`).join('\n')}
 begin
+  -- Instancia del circuito bajo prueba: cada puerto se conecta a la senal
+  -- del mismo nombre (puerto => senal).
   uut: entity work.${e}
     port map (${[...id.ins, ...id.outs].map(x => `${x} => ${x}`).join(', ')});
 
+  -- Proceso de estimulos: recorre la tabla de verdad de arriba abajo.
   process
-    variable k_v : unsigned(${n - 1} downto 0);
-    variable k_err : natural := 0;
+${cols([[`variable k_v   : unsigned(${n - 1} downto 0);`, 'numero de fila en binario'], ['variable k_err : natural := 0;', 'comparaciones que fallaron']], '--', '    ')}
   begin
     for k_i in 0 to ${N - 1} loop
+      -- 1) Poner las entradas: cada bit del numero de fila va a una variable
+      --    (${msb} es el bit mas significativo y ${lsb} el menos significativo).
       k_v := to_unsigned(k_i, ${n});
       ${id.ins.map((x, k) => `${x} <= k_v(${n - 1 - k});`).join(' ')}
+
+      -- 2) Esperar a que el circuito responda (en hardware real, el retardo
+      --    de las compuertas es de unos nanosegundos).
       wait for 10 ns;
+
+      -- 3) Comparar cada salida con la tabla de verdad. Las filas '-' no
+      --    se comparan: ahi cualquier valor es correcto.
 ${outs.map(o => `      if (ESP_${o.id}(k_i + 1) = '1' and ${o.id} /= '1') or (ESP_${o.id}(k_i + 1) = '0' and ${o.id} /= '0') then
         report "Fila " & integer'image(k_i) & ", salida ${o.id}: se obtuvo " & std_logic'image(${o.id}) & " y se esperaba " & ESP_${o.id}(k_i + 1) severity error;
         k_err := k_err + 1;
       end if;`).join('\n')}
     end loop;
+
+    -- 4) Informe final. "severity failure" detiene la simulacion con error.
     if k_err = 0 then
       report "${okMsg}" severity note;
     else
       report "ERROR: " & integer'image(k_err) & " comparacion(es) no coinciden." severity failure;
     end if;
-    wait;
+    wait;   -- un process sin lista de sensibilidad se detiene aqui para siempre
   end process;
 end prueba;
 `;
     if (lang === 'v') {
       const bits = (vals, f) => `${N}'b` + vals.map(f).reverse().join('');
-      return `// Banco de prueba (testbench) de ${e}.
-// ${head}
-// Con Icarus Verilog:  iverilog -o ${e}_tb ${e}.v ${e}_tb.v && vvp ${e}_tb
-\`timescale 1ns/1ps
-module ${e}_tb;
-  reg ${id.ins.join(', ')};
-  wire ${id.outs.join(', ')};
-  // bit k = valor esperado en la fila k; los bits en 1 de DC_ marcan "no importa"
-${outs.map(o => `  localparam [${N - 1}:0] ESP_${o.id} = ${bits(o.vals, v => v === 1 ? 1 : 0)};
-  localparam [${N - 1}:0] DC_${o.id} = ${bits(o.vals, v => v === 2 ? 1 : 0)};`).join('\n')}
-  integer k_i, k_err;
+      return `// =====================================================================
+// Banco de prueba (testbench) de ${e}
+// ${ascii(spec.title)}
+//
+// Que es un banco de prueba: un modulo "de laboratorio", sin puertos, que
+// contiene al circuito que queremos probar (uut, "unit under test"), le
+// aplica las ${N} combinaciones de entrada y compara cada salida con la
+// tabla de verdad. Es lo mismo que recorrer la tabla con el DIP y mirar
+// el LED, pero automatico.
+//
+// Como simularlo con Icarus Verilog:
+${cols([[`iverilog -o ${e}_tb ${e}.v ${e}_tb.v`, 'compila los dos archivos'], [`vvp ${e}_tb`, 'ejecuta la simulacion']], '<-', '//   ')}
+// En ModelSim o Vivado: agrega los dos archivos y simula ${e}_tb.
+// Al final aparece "Prueba superada" o la lista de filas que fallan.
+// =====================================================================
+\`timescale 1ns/1ps   // unidad de tiempo de los retardos (#10 = 10 ns)
 
+module ${e}_tb;
+  // Entradas del circuito: las maneja el banco de prueba (reg = guarda un valor).
+  reg ${id.ins.join(', ')};
+  // Salidas del circuito: las produce el circuito (wire = solo conecta).
+  wire ${id.outs.join(', ')};
+
+  // Tabla de verdad esperada de cada salida. El bit k (contando desde la
+  // derecha, empezando en 0) es el valor en la fila k. En DC_ un 1 marca
+  // las filas de "no importa", que no se comparan.
+${outs.map(o => `  localparam [${N - 1}:0] ESP_${o.id} = ${bits(o.vals, v => v === 1 ? 1 : 0)};
+  localparam [${N - 1}:0] DC_${o.id}  = ${bits(o.vals, v => v === 2 ? 1 : 0)};`).join('\n')}
+
+  integer k_i;     // numero de fila
+  integer k_err;   // comparaciones que fallaron
+
+  // Instancia del circuito bajo prueba: .puerto(senal)
   ${e} uut (${[...id.ins, ...id.outs].map(x => `.${x}(${x})`).join(', ')});
 
+  // initial: se ejecuta una sola vez, al comenzar la simulacion.
   initial begin
     k_err = 0;
     for (k_i = 0; k_i < ${N}; k_i = k_i + 1) begin
+      // 1) Poner las entradas: los bits del numero de fila se reparten entre
+      //    las variables (${msb} es el mas significativo y ${lsb} el menos).
       {${id.ins.join(', ')}} = k_i[${n - 1}:0];
+
+      // 2) Esperar a que el circuito responda.
       #10;
+
+      // 3) Comparar cada salida con la tabla de verdad (!== tambien detecta
+      //    valores desconocidos x). Las filas de "no importa" se saltan.
 ${outs.map(o => `      if (!DC_${o.id}[k_i] && ${o.id} !== ESP_${o.id}[k_i]) begin
         $display("Fila %0d, salida ${o.id}: se obtuvo %b y se esperaba %b", k_i, ${o.id}, ESP_${o.id}[k_i]);
         k_err = k_err + 1;
       end`).join('\n')}
     end
+
+    // 4) Informe final y fin de la simulacion.
     if (k_err == 0) $display("${okMsg}");
     else $display("ERROR: %0d comparacion(es) no coinciden.", k_err);
     $finish;
@@ -1562,53 +1956,88 @@ ${outs.map(o => `      if (!DC_${o.id}[k_i] && ${o.id} !== ESP_${o.id}[k_i]) beg
 endmodule
 `;
     }
-    if (lang === 'c') return `/* Banco de prueba (testbench) de ${e}.
-   ${head}
-   Compilar y ejecutar:  gcc ${e}_tb.c -o ${e}_tb && ./${e}_tb */
-#include <stdbool.h>
-#include <stdio.h>
+    if (lang === 'c') return `/* =====================================================================
+   Banco de prueba de ${e}
+   ${ascii(spec.title)}
 
-${outs.map(o => `/* ${o.id}: ${formTxt(o.sol)} */
+   Programa completo: contiene la funcion simplificada y una prueba que
+   recorre las ${N} combinaciones de entrada (las filas de la tabla de
+   verdad) y compara cada salida con la tabla original.
+
+   Compilar y ejecutar:
+${cols([[`gcc ${e}_tb.c -o ${e}_tb`, 'compila'], [`./${e}_tb`, `ejecuta (en Windows: ${e}_tb.exe)`]], '<-', '     ')}
+   Tambien funciona en cualquier compilador de C en linea.
+   Al final aparece "Prueba superada" o la lista de filas que fallan.
+   ===================================================================== */
+#include <stdbool.h>   /* tipo bool: true / false */
+#include <stdio.h>     /* printf */
+
+/* Operadores: ! = NOT (A'), && = AND (producto), || = OR (suma). */
+${outs.map(o => `${eqComment('c', '//', n, id.ins, o.id, o.sol, '')}
 static bool ${e}_${o.id}(${id.ins.map(x => 'bool ' + x).join(', ')}) {
   return ${exprLang('c', n, id.ins, o.sol)};
 }`).join('\n\n')}
 
 int main(void) {
-  /* valor esperado de cada salida en las filas 0 a ${N - 1} ('-' = no importa) */
+  /* Tabla de verdad esperada de cada salida: el caracter k es el valor en
+     la fila k ('-' = no importa: esa fila no se compara). */
 ${outs.map(o => `  const char *esp_${o.id} = "${o.esp}";`).join('\n')}
-  int k_err = 0;
+  int k_err = 0;   /* comparaciones que fallaron */
+
   for (int k_i = 0; k_i < ${N}; k_i++) {
+    /* 1) Entradas de la fila k_i: cada variable es un bit del numero de fila
+          (${msb} es el mas significativo y ${lsb} el menos significativo). */
     ${id.ins.map((x, k) => `bool ${x} = (k_i >> ${n - 1 - k}) & 1;`).join(' ')}
+
+    /* 2) Calcular cada salida y 3) compararla con la tabla de verdad. */
 ${outs.map(o => `    bool ${o.id} = ${e}_${o.id}(${id.ins.join(', ')});
     if (esp_${o.id}[k_i] != '-' && ${o.id} != (esp_${o.id}[k_i] == '1')) {
       printf("Fila %d, salida ${o.id}: se obtuvo %d y se esperaba %c\\n", k_i, ${o.id}, esp_${o.id}[k_i]);
       k_err++;
     }`).join('\n')}
   }
+
+  /* 4) Informe final. El programa termina con codigo 1 si hubo errores. */
   if (k_err == 0) printf("${okMsg}\\n");
   else printf("ERROR: %d comparacion(es) no coinciden.\\n", k_err);
   return k_err != 0;
 }
 `;
-    if (lang === 'py') return `# Banco de prueba (testbench) de ${e}.
-# ${head}
+    if (lang === 'py') return `# =====================================================================
+# Banco de prueba de ${e}
+# ${spec.title}
+#
+# Programa completo: contiene la función simplificada y una prueba que
+# recorre las ${N} combinaciones de entrada (las filas de la tabla de
+# verdad) y compara cada salida con la tabla original.
+#
 # Ejecutar:  python3 ${e}_tb.py
+# Al final aparece "Prueba superada" o la lista de filas que fallan.
+# =====================================================================
 
-${outs.map(o => `def ${e}_${o.id}(${id.ins.join(', ')}):
-    """${o.id}: ${formTxt(o.sol)}"""
+# Operadores: not = negación (A'), and = producto, or = suma.
+${outs.map(o => `${eqComment('py', '#', n, id.ins, o.id, o.sol, '')}
+def ${e}_${o.id}(${id.ins.join(', ')}):
     return ${exprLang('py', n, id.ins, o.sol)}`).join('\n\n\n')}
 
 
-# valor esperado de cada salida en las filas 0 a ${N - 1} ('-' = no importa)
+# Tabla de verdad esperada de cada salida: el carácter k es el valor en la
+# fila k ("-" = no importa: esa fila no se compara).
 ${outs.map(o => `ESP_${o.id} = "${o.esp}"`).join('\n')}
 
-k_err = 0
+k_err = 0  # comparaciones que fallaron
 for k_i in range(${N}):
+    # 1) Entradas de la fila k_i: cada variable es un bit del número de fila
+    #    (${msb} es el más significativo y ${lsb} el menos significativo).
     ${id.ins.join(', ')}${n === 1 ? ',' : ''} = [(k_i >> k_s) & 1 for k_s in (${[...Array(n)].map((_, k) => n - 1 - k).join(', ')}${n === 1 ? ',' : ''})]
+
+    # 2) Calcular cada salida (como 0 o 1) y 3) compararla con la tabla.
 ${outs.map(o => `    ${o.id} = int(bool(${e}_${o.id}(${id.ins.join(', ')})))
     if ESP_${o.id}[k_i] != "-" and ${o.id} != int(ESP_${o.id}[k_i]):
         print(f"Fila {k_i}, salida ${o.id}: se obtuvo {${o.id}} y se esperaba {ESP_${o.id}[k_i]}")
         k_err += 1`).join('\n')}
+
+# 4) Informe final. El programa termina con código 1 si hubo errores.
 if k_err == 0:
     print("${okMsg}")
 else:
@@ -1617,13 +2046,27 @@ else:
 `;
     throw new Error('Lenguaje sin banco de prueba: ' + lang);
   }
-  /* vector de prueba de Logisim-evolution; los nombres deben ser las etiquetas de los pines del .circ */
+
+  /**
+   * Vector de prueba de Logisim-evolution (Simular > Vector de prueba):
+   * una línea de encabezado con los nombres de los pines y una fila por
+   * combinación de entradas con las salidas esperadas («x» = no importa).
+   * inNames / outNames deben ser exactamente las etiquetas de los pines del .circ.
+   */
   function logisimVector(spec, inNames, outNames) {
     const N = nRows(spec), rows = [];
     for (let i = 0; i < N; i++) rows.push([...Array(spec.n)].map((_, k) => (i >> (spec.n - 1 - k)) & 1).concat(spec.outs.map(o => o.vals[i] === 2 ? 'x' : o.vals[i])).join(' '));
-    return `# Vector de prueba para Logisim-evolution: ${ascii(spec.title)}
-# Uso: Simular > Vector de prueba > Cargar vector, y elige este archivo.
-# Una fila por combinacion de entradas; x = no importa.
+    return `# Vector de prueba para Logisim-evolution
+# ${ascii(spec.title)}
+#
+# Para usarlo: abre el circuito (.circ) y elige
+#   Simular > Vector de prueba > Cargar vector
+# Logisim aplica cada fila a las entradas y compara las salidas.
+#
+# Formato: la primera linea (sin #) tiene los nombres de los pines, que deben
+# coincidir con las etiquetas del circuito; despues va una fila por
+# combinacion de entradas: primero las entradas (${inNames.join(' ')}) y luego
+# la salida esperada (${outNames.join(' ')}). x = no importa.
 ${[...inNames, ...outNames].join(' ')}
 ${rows.join('\n')}
 `;
@@ -1634,11 +2077,25 @@ ${rows.join('\n')}
 })();
 if (typeof module !== 'undefined') module.exports = K;
 
-/* ===================== Exportación a Logisim-evolution (.circ) ===================== */
+/* =====================================================================
+   Exportación a Logisim-evolution (.circ) y archivos .zip
+   Se agregan al objeto K como K.toLogisim y K.zipStore.
+   ===================================================================== */
 (function () {
   const LG = { AND: 'AND Gate', OR: 'OR Gate', NAND: 'NAND Gate', NOR: 'NOR Gate', XOR: 'XOR Gate', NOT: 'NOT Gate' };
   const DY = { 1: [0], 2: [-20, 20], 3: [-20, 0, 20], 4: [-20, -10, 10, 20] };
   const xmlEsc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  /**
+   * Genera el archivo .circ de Logisim-evolution 3.8 de una netlist.
+   * Distribución: un pin de entrada por variable en la parte superior con su bus vertical
+   * (y su inversor al lado, si se usa); las compuertas en columnas según su nivel lógico y
+   * las salidas a la derecha. Cada cable se enruta con tramos horizontales y verticales que
+   * no pueden cruzar el extremo de otro cable ni atravesar una compuerta (Logisim uniría
+   * las redes). Si alguna conexión no se puede trazar, se reintenta con más espacio entre
+   * columnas (gapF hasta 4).
+   * @returns {{xml: string, ok: boolean, outNames: string[]}} outNames lleva el sufijo _out
+   *   cuando una salida se llama igual que una entrada
+   */
   function toLogisim(net, n, inNames, outNames, gapF) {
     gapF = gapF || 1;
     const outNames0 = outNames;
@@ -1804,6 +2261,13 @@ if (typeof module !== 'undefined') module.exports = K;
   /* ZIP sin compresión (método «store») */
   const CRC = (() => { const t = new Uint32Array(256); for (let i = 0; i < 256; i++) { let c = i; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[i] = c >>> 0; } return t; })();
   const crc32 = b => { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  /**
+   * Crea un archivo .zip sin compresión (método «store»), suficiente para unos pocos
+   * archivos de texto y sin depender de librerías: encabezado local, datos y directorio
+   * central por cada archivo, con su CRC-32.
+   * @param {{name: string, data: string|Uint8Array}[]} files
+   * @returns {Uint8Array}
+   */
   function zipStore(files) {
     const enc = new TextEncoder(), parts = [], central = []; let off = 0;
     const u16 = v => [v & 255, (v >>> 8) & 255], u32 = v => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
@@ -1834,6 +2298,27 @@ const gname = i => GNAMES[i % 8] + (i >= 8 ? ' punteado' : '');
 const DEF_NAMES = ['A', 'B', 'C', 'D', 'E', 'F'];
 const STORE = 'karnaugh-lab-v4';
 
+/* Estado de la aplicación. Se guarda en el navegador (ver save) y se
+   restaura al volver a abrir la página:
+     n, names, vals     número de variables, sus nombres y la tabla de verdad
+     form               forma mostrada: 'sop' (agrupar unos) o 'pos' (agrupar ceros)
+     notation           negación con barra ('bar') o apóstrofo ('prime')
+     family, maxIn      compuertas del circuito ('aon', 'nand', 'nor', 'xor') y
+                        máximo de entradas por compuerta (2 o 4)
+     series             integrados 74LS (TTL) o 74HC (CMOS)
+     dip                combinación de entrada actual (los interruptores)
+     tool               qué hace un toque en el mapa: 'cycle', '1', '0' o '2' (X)
+     method             paso a paso con el mapa ('visual') o Quine–McCluskey ('qm')
+     alt                solución elegida entre las de igual costo, por forma
+     zoom               zoom manual del circuito y de la protoboard
+     view               pestaña abierta
+     introSeen          si ya se cerró la guía de inicio
+     tr, mirror         orientación del mapa: filas/columnas intercambiadas o
+                        convención espejo para 5 y 6 variables
+     pull, tie          resistencias pull-down o pull-up, y si se conectan a GND
+                        las entradas sin usar de los 74LS
+   R guarda los resultados de minimize para 'sop' y 'pos' (ver compute), y
+   NET / NETKEY el circuito calculado y la clave con la que se calculó (ver getNet). */
 const S = Object.assign({
   n: 4, names: DEF_NAMES.slice(), vals: [1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0],
   form: 'sop', notation: 'bar', family: 'aon', maxIn: 4, series: 'ls', dip: 0, tool: 'cycle', method: 'visual',
@@ -1843,9 +2328,16 @@ if (!Array.isArray(S.vals) || S.vals.length !== (1 << S.n)) { S.n = 4; S.vals = 
 S.alt = { sop: 0, pos: 0 }; S.zoom = { circ: null, board: null };
 const R = {};
 let NET = null, NETKEY = '';
+/**
+ * Guarda en el navegador (localStorage) la función y las preferencias, para que el
+ * trabajo siga ahí al volver a abrir la página. Si el navegador no lo permite, no pasa nada.
+ */
 function save() {
   try { localStorage.setItem(STORE, JSON.stringify({ n: S.n, names: S.names, vals: S.vals, form: S.form, notation: S.notation, family: S.family, maxIn: S.maxIn, series: S.series, view: S.view, method: S.method, introSeen: S.introSeen, tr: S.tr, mirror: S.mirror, pull: S.pull, tie: S.tie })); } catch (e) { }
 }
+/**
+ * Mensaje breve en la parte inferior, con un botón de acción opcional (p. ej. «Deshacer»).
+ */
 function toast(msg, actLabel, actFn) {
   const t = $('#toast'), b = $('#toastAct');
   $('#toastMsg').textContent = msg;
@@ -1856,28 +2348,61 @@ function toast(msg, actLabel, actFn) {
 /* ===================== Historial (deshacer / rehacer) ===================== */
 const HIST = [], FUT = [];
 const snap = () => JSON.stringify({ n: S.n, names: S.names, vals: S.vals });
+/**
+ * Restaura una función guardada en el historial (deshacer / rehacer).
+ */
 function restore(js) { const o = JSON.parse(js); S.n = o.n; S.names = o.names; S.vals = o.vals; S.alt = { sop: 0, pos: 0 }; if (S.dip >= (1 << S.n)) S.dip = 0; renderInputs(); refresh(); }
+/**
+ * Guarda el estado actual en el historial antes de un cambio (máximo 80 pasos).
+ */
 function pushHist() { HIST.push(snap()); if (HIST.length > 80) HIST.shift(); FUT.length = 0; updHist(); }
+/**
+ * Deshace el último cambio de la función (Ctrl+Z).
+ */
 function undo() { if (!HIST.length) return; FUT.push(snap()); restore(HIST.pop()); updHist(); toast('Cambio deshecho'); }
+/**
+ * Rehace el último cambio deshecho (Ctrl+Y).
+ */
 function redo() { if (!FUT.length) return; HIST.push(snap()); restore(FUT.pop()); updHist(); }
+/**
+ * Activa o desactiva los botones Deshacer y Rehacer.
+ */
 function updHist() { const u = $('#undoBtn'), r = $('#redoBtn'); if (u) u.disabled = !HIST.length; if (r) r.disabled = !FUT.length; }
+/**
+ * Aplica un cambio a la función guardándolo antes en el historial y recalcula todo.
+ */
 function commit(fn) { pushHist(); fn(); refresh(); }
 
 /* ===================== Notación ===================== */
 const nm = i => S.names[i];
 const multi = () => S.names.slice(0, S.n).some(x => x.length > 1);
+/**
+ * Literal en HTML: con barra (Ā) o apóstrofo (A′) según la notación elegida.
+ */
 function litH(l) { const t = esc(nm(l.v)); return l.neg ? (S.notation === 'bar' ? `<span class="ov">${t}</span>` : t + '′') : t; }
+/**
+ * Literal en texto plano con apóstrofo (A'), para copiar y exportar.
+ */
 function litT(l) { return nm(l.v) + (l.neg ? "'" : ''); }
+/**
+ * Término en HTML: producto de literales en SOP o suma entre paréntesis en POS.
+ */
 function termH(p, pos) {
   const L = K.termLits(S.n, p, pos);
   if (!pos) return L.map(litH).join(multi() ? '·' : '');
   return L.length > 1 ? '(' + L.map(litH).join(' + ') + ')' : litH(L[0]);
 }
+/**
+ * Término en texto plano.
+ */
 function termT(p, pos) {
   const L = K.termLits(S.n, p, pos);
   if (!pos) return L.map(litT).join(multi() ? '·' : '');
   return L.length > 1 ? '(' + L.map(litT).join(' + ') + ')' : litT(L[0]);
 }
+/**
+ * Ecuación completa en HTML; con `colored`, cada término se subraya con el color de su grupo.
+ */
 function exprH(res, colored) {
   if (res.constant !== undefined) return String(res.constant);
   const pos = res.form === 'pos';
@@ -1885,6 +2410,9 @@ function exprH(res, colored) {
     ? `<span class="term" data-g="${i}" style="border-bottom-color:${gcol(i)}${i >= 8 ? ';border-bottom-style:dashed' : ''}">${termH(p, pos)}</span>` : termH(p, pos));
   return parts.join(pos ? (multi() ? '·' : '') : ' + ');
 }
+/**
+ * Ecuación completa en texto plano (A'B + C), para copiar.
+ */
 function exprT(res) {
   if (res.constant !== undefined) return String(res.constant);
   const pos = res.form === 'pos';
@@ -1910,13 +2438,28 @@ function compute() {
   R.pos = K.minimize(S.n, S.vals, true);
   ['sop', 'pos'].forEach(f => { const r = R[f]; if (r.alternatives && S.alt[f] >= r.alternatives.length) S.alt[f] = 0; });
 }
+/**
+ * Solución que se muestra para una forma ('sop' o 'pos'): la alternativa elegida por el
+ * usuario entre las de igual costo.
+ */
 function sol(form) {
   const r = R[form];
   if (r.constant !== undefined) return r;
   return Object.assign({}, r, { terms: r.alternatives[S.alt[form]] || r.terms });
 }
+/**
+ * Forma XOR de la función actual, si la tiene (ver K.xorForm).
+ */
 function xorInfo() { return R.sop && R.sop.constant === undefined ? K.xorForm(S.n, S.vals) : null; }
+/**
+ * Familia de compuertas que realmente se usa: si se eligió XOR pero la función no es
+ * un XOR, se usa AND-OR.
+ */
 function famEff() { return S.family === 'xor' && !xorInfo() ? 'aon' : S.family; }
+/**
+ * Netlist del circuito actual con su asignación a integrados. Se guarda en caché y solo
+ * se recalcula cuando cambia la función, la forma, la familia o el máximo de entradas.
+ */
 function getNet() {
   const fam = famEff();
   const key = [S.n, S.vals.join(''), S.form, S.alt[S.form], fam, S.maxIn].join('|');
@@ -1945,6 +2488,10 @@ function runs(set, L) {
   if (seg.length === 2 && seg[0].s === 0 && seg[1].s + seg[1].len === L) { seg[0].openStart = true; seg[1].openEnd = true; }
   return seg;
 }
+/**
+ * Indica si un grupo pasa por el borde del mapa (sus celdas se tocan «dando la vuelta»)
+ * o si ocupa varios submapas; se usa en la leyenda.
+ */
 function wraps(n, p) {
   const L = K.layout(n); const subs = new Set();
   let w = false;
@@ -1956,11 +2503,19 @@ function wraps(n, p) {
   }
   return { edge: w, multi: subs.size > 1 };
 }
+/**
+ * Geometría del mapa según la convención elegida: superposición (K.layout) o, con
+ * 5 y 6 variables, «espejo» (un solo mapa con 3 bits Gray por eje).
+ */
 function mapLayout(n, mir) {
   if (!(mir && n >= 5)) return K.layout(n);
   const rv = Math.floor(n / 2), cv = n - rv;
   return { n, s: 0, rv, cv, rows: 1 << rv, cols: 1 << cv, subs: 1, subRows: 1, subCols: 1, mirror: true };
 }
+/**
+ * Medidas en píxeles del dibujo del mapa: celdas, rótulos, corchetes de las
+ * variables y separación entre submapas. `tr` intercambia filas y columnas.
+ */
 function mapGeom(n, cs, tr, mir) {
   const L = mapLayout(n, mir);
   const R_ = tr ? L.cols : L.rows, C_ = tr ? L.rows : L.cols, rv = tr ? L.cv : L.rv, cv = tr ? L.rv : L.cv;
@@ -2038,7 +2593,13 @@ function drawMap(o) {
   s += cells.join('') + grp.join('') + over.join('') + '</svg>';
   return s;
 }
+/**
+ * Grupos de una solución con su color, listos para dibujar en el mapa.
+ */
 function groupsOf(res) { return res.constant !== undefined ? [] : res.terms.map((p, i) => ({ p, color: gcol(i) })); }
+/**
+ * Permite desplazamiento horizontal en los mapas de 5 y 6 variables si no caben.
+ */
 function fitMap(box, n) {
   const svg = box && box.querySelector('svg'); if (!svg) return;
   const w = +svg.getAttribute('width');
@@ -2060,6 +2621,9 @@ function dipHTML() {
   <div class="readout">Entradas <strong>${K.bin(S.dip, S.n)}</strong> → ${kind} <strong>${v === 0 ? 'M' : v === 1 ? 'm' : 'd'}${S.dip}</strong></div>
   ${v !== 2 ? `<div class="readout">${v === 0 ? 'M' : 'm'}<sub>${S.dip}</sub> = ${v === 0 ? maxtermH(S.dip) : mintermH(S.dip)}</div>` : ''}</div>`;
 }
+/**
+ * Conecta los interruptores DIP dibujados para cambiar la combinación de entrada actual.
+ */
 function bindDip(box) {
   box.addEventListener('click', e => {
     const b = e.target.closest('.slot'); if (!b) return;
@@ -2111,12 +2675,19 @@ function renderInputs() {
   const mOn = S.mirror && S.n >= 5;
   $('#trSeg').innerHTML = `<button data-tr="0" aria-pressed="${!S.tr && !mOn}">Filas ${esc(rv)}, columnas ${esc(cv)}</button><button data-tr="1" aria-pressed="${!!S.tr && !mOn}">Filas ${esc(cv)}, columnas ${esc(rv)}</button>${S.n >= 5 ? `<button data-tr="m" aria-pressed="${mOn}" title="Un solo mapa con columnas en Gray de 3 bits y eje de simetría">Un solo mapa (espejo)</button>` : ''}`;
 }
+/**
+ * Cambia entre suma de productos (agrupar unos) y producto de sumas (agrupar ceros).
+ */
 function setForm(f) {
   S.form = f; stopAnim();
   $$('[data-form]').forEach(b => b.setAttribute('aria-pressed', b.dataset.form === f));
   refresh(false);
 }
 let ANIM = null;
+/**
+ * Dibuja el mapa de la calculadora con sus grupos, la ecuación protagonista y la
+ * leyenda. `groupsOverride` se usa en la animación para mostrar solo algunos grupos.
+ */
 function renderMap(groupsOverride) {
   const res = sol(S.form);
   const groups = groupsOverride || groupsOf(res);
@@ -2133,7 +2704,14 @@ function renderMap(groupsOverride) {
     ? `<span class="meta">La función es constante (F = ${res.constant}); no hay grupos que formar.</span>`
     : (S.mirror && S.n >= 5 ? '<span class="meta" style="flex-basis:100%">Convención espejo: la línea azul es el eje; las celdas simétricas respecto a él también son vecinas, por eso un grupo puede verse en dos piezas.</span>' : '') + res.terms.map((p, i) => { const w = S.mirror && S.n >= 5 ? {} : wraps(S.n, p); return `<span class="it" data-g="${i}" style="color:${gcol(i)}"><span class="sw" ${i >= 8 ? 'style="border-style:dashed"' : ''}></span><span style="color:var(--ink)">${termH(p, pos)}${w.edge ? ' <span class="meta">↔ pasa por el borde</span>' : ''}${w.multi ? ' <span class="meta">⧉ en varios mapas</span>' : ''}</span></span>`; }).join('');
 }
+/**
+ * Detiene la animación de los grupos.
+ */
 function stopAnim() { if (ANIM) { clearInterval(ANIM.t); ANIM = null; } const c = $('#animCap'); if (c) c.hidden = true; const b = $('#animBtn'); if (b) b.textContent = 'Animar grupos'; }
+/**
+ * Animación «Animar grupos»: muestra los grupos uno a uno, primero los esenciales,
+ * explicando por qué se elige cada uno.
+ */
 function startAnim() {
   if (ANIM) { stopAnim(); renderMap(); return; }
   const res = sol(S.form);
@@ -2179,6 +2757,10 @@ function lgOutNames(ins, outs) {
   const used = new Set(ins.map(x => x.toLowerCase()));
   return outs.map(o => { let nm = o; if (used.has(nm.toLowerCase())) nm = o + '_out'; while (used.has(nm.toLowerCase())) nm += '_'; used.add(nm.toLowerCase()); return nm; });
 }
+/**
+ * Columna de resultados de la calculadora: SOP y POS mínimas, formas canónicas,
+ * relación por De Morgan, costo de implementación, riesgos estáticos y exportación.
+ */
 function renderResults() {
   const s = sol('sop'), p = sol('pos'), { o, z, d } = listOf();
   const altH = f => {
@@ -2259,6 +2841,10 @@ function renderResults() {
   renderHDL();
 }
 let HDL = { lang: 'vhdl', form: 'sop', kind: 'design' };
+/**
+ * Ecuación en la sintaxis de Logisim (~A B + C) o de LaTeX (\overline{A}B + C).
+ * VHDL, Verilog, C y Python se generan con K.designCode.
+ */
 function exprFmt(res, fmt) {
   const ids = hdlIds(), pos = res.form === 'pos';
   if (res.constant !== undefined) return { lg: String(res.constant), c: res.constant ? 'true' : 'false', py: res.constant ? 'True' : 'False', tex: String(res.constant) }[fmt];
@@ -2284,10 +2870,17 @@ const HDL_RUN = {
   v: 'Con Icarus Verilog:\r\n  iverilog -o funcion_k_tb funcion_k.v funcion_k_tb.v\r\n  vvp funcion_k_tb\r\n\r\nEn ModelSim o Vivado: agrega los dos archivos al proyecto y simula funcion_k_tb.',
   c: 'Compilar y ejecutar:\r\n  gcc funcion_k_tb.c -o funcion_k_tb\r\n  ./funcion_k_tb',
   py: 'Ejecutar:\r\n  python3 funcion_k_tb.py' };
+/**
+ * Vector de prueba de Logisim de la función actual, con los nombres de los pines del .circ.
+ */
 function lgVectorCalc() {
   const ins = hdlIds();
   return K.logisimVector(calcSpec(HDL.form), ins, lgOutNames(ins, ['F']));
 }
+/**
+ * Código que muestra la tarjeta de exportación: el diseño o su banco de prueba
+ * (`kind` = 'design' o 'tb') en el lenguaje elegido.
+ */
 function hdlCode(lang, kind) {
   const r = sol(HDL.form);
   if (kind === 'tb') return lang === 'lg' ? lgVectorCalc() : K.testbench(lang, calcSpec(HDL.form));
@@ -2295,6 +2888,9 @@ function hdlCode(lang, kind) {
   if (lang === 'tex') return `F = ${exprFmt(r, 'tex')}`;
   return K.designCode(lang, calcSpec(HDL.form));
 }
+/**
+ * Actualiza la tarjeta de exportación: botones, código, explicación y nombres de archivo.
+ */
 function renderHDL() {
   const box = $('#hdlBox'); if (!box) return;
   if (HDL.lang === 'tex') HDL.kind = 'design';
@@ -2308,6 +2904,10 @@ function renderHDL() {
   $('#hdlZip').disabled = L === 'tex';
   $('#hdlZip').textContent = L === 'lg' ? 'Circuito + vector de prueba (.zip)' : 'Diseño + testbench (.zip)';
 }
+/**
+ * Descarga el diseño y su banco de prueba en un .zip con un LEEME de cómo ejecutarlos
+ * (para Logisim, el circuito y su vector de prueba).
+ */
 async function downloadHDLZip() {
   const L = HDL.lang;
   if (L === 'lg') return downloadLogisim(getNet(), ['F'], 'funcion_k', [S.vals]);
@@ -2319,6 +2919,10 @@ async function downloadHDLZip() {
   const res = await saveFile(`funcion_k-${{ vhdl: 'vhdl', v: 'verilog', c: 'c', py: 'python' }[L]}.zip`, new Blob([K.zipStore(files)], { type: 'application/zip' }));
   if (res === 'ok') toast('Diseño y banco de prueba listos');
 }
+/**
+ * Tabla de verdad con el mintérmino o maxitérmino de cada fila; la fila actual
+ * (la combinación de los interruptores) va resaltada.
+ */
 function renderTruth() {
   const head = `<tr><th>m</th>${S.names.slice(0, S.n).map(x => `<th>${esc(x)}</th>`).join('')}<th>F</th><th style="text-align:left">Mintérmino / maxitérmino</th></tr>`;
   let rows = '';
@@ -2334,6 +2938,10 @@ function renderTruth() {
 
 /* ===================== Código para compartir ===================== */
 const encodeFn = () => `K${S.n}-${S.names.slice(0, S.n).join('.')}-${S.vals.map(v => v === 2 ? 'x' : v).join('')}`;
+/**
+ * Lee un código para compartir como «K4-A.B.C.D-0110…»: número de variables,
+ * nombres y tabla de verdad (x = no importa). Da error si está incompleto.
+ */
 function decodeFn(code) {
   const m = String(code).trim().replace(/^#?k=/i, '').match(/^K([2-6])-([^-]+)-([01xX]+)$/);
   if (!m) throw new Error('El código no tiene el formato K4-A.B.C.D-0110… Revisa que esté completo.');
@@ -2345,26 +2953,42 @@ function decodeFn(code) {
 
 /* ===================== Ciclo de actualización ===================== */
 const DIRTY = new Set();
+/**
+ * Ciclo de actualización: recalcula (si `recompute`) y vuelve a dibujar la
+ * calculadora y la pestaña visible. Las demás se marcan para dibujarse al abrirlas.
+ */
 function refresh(recompute = true) {
   if (recompute) { compute(); save(); stopAnim(); }
   DIRTY.add('steps'); DIRTY.add('circuit'); DIRTY.add('board');
   renderCalc();
   renderActive();
 }
+/**
+ * Dibuja todo lo de la pestaña Calculadora.
+ */
 function renderCalc() {
   if (!ANIM) renderMap();
   renderResults(); renderTruth();
   $('#dipCalc').innerHTML = dipHTML();
 }
+/**
+ * Dibuja la pestaña visible si quedó pendiente de actualizar.
+ */
 function renderActive() {
   const v = S.view;
   if (v === 'steps' && DIRTY.has('steps')) { renderSteps(); DIRTY.delete('steps'); }
   if (v === 'circuit') { renderCircuit(); DIRTY.delete('circuit'); }
   if (v === 'board') { renderBoard(); DIRTY.delete('board'); }
 }
+/**
+ * Cambia el valor de una celda según la herramienta elegida (ciclar 0 → 1 → X o fijar un valor).
+ */
 function cycleVal(i) {
   commit(() => { if (S.tool === 'cycle') S.vals[i] = (S.vals[i] + 1) % 3; else S.vals[i] = +S.tool; });
 }
+/**
+ * Cambia el número de variables (borra la función; se puede deshacer).
+ */
 function setN(n) {
   if (n === S.n) return;
   const had = S.vals.some(v => v !== 0);
@@ -2374,6 +2998,9 @@ function setN(n) {
   if (had) toast(`Mapa de ${n} variables: se borró la función anterior.`, 'Deshacer', undo);
   else toast(`Mapa de ${n} variables listo: ${1 << n} celdas`);
 }
+/**
+ * Resalta un grupo en los mapas de `scope` y atenúa los demás (al pasar el cursor por un término).
+ */
 function focusGroup(scope, gi, on) {
   (scope || document).querySelectorAll('svg').forEach(svg => {
     if (!svg.querySelector('.grp')) return;
@@ -2382,6 +3009,11 @@ function focusGroup(scope, gi, on) {
   });
 }
 let DL = null;
+/**
+ * Descarga un archivo. Dentro de claude.ai usa su API de descargas; en cualquier otro
+ * lugar, un enlace <a download>.
+ * @returns {Promise<'ok'|'declined'|'rate'>}
+ */
 async function saveFile(filename, data) {
   if (DL) {
     try { await DL.save({ filename, data }); return 'ok'; }
@@ -2394,11 +3026,17 @@ async function saveFile(filename, data) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); a.remove();
   return 'ok';
 }
+/**
+ * Copia un texto al portapapeles y avisa si se pudo.
+ */
 function copyText(t, okMsg) {
   if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => toast(okMsg || 'Copiado'), () => toast('No se pudo copiar; selecciónalo a mano'));
   else toast('No se pudo copiar; selecciónalo a mano');
 }
 
+/**
+ * Conecta todos los controles de la pestaña Calculadora.
+ */
 function bindCalc() {
   $('#nSeg').addEventListener('click', e => { const b = e.target.closest('[data-n]'); if (b) setN(+b.dataset.n); });
   $('#names').addEventListener('input', e => {
@@ -2517,7 +3155,14 @@ function stepsModel(f) {
     W: pos ? { one: 'cero', ones: 'ceros', mt: 'maxitérmino', mts: 'maxitérminos', M: 'M', sym: 'ΠM', val: 0 }
       : { one: 'uno', ones: 'unos', mt: 'mintérmino', mts: 'mintérminos', M: 'm', sym: 'Σm', val: 1 } };
 }
+/**
+ * Lista de celdas como «m(1,3,5)» o «M(0,2)».
+ */
 function covTxt(M, cov) { return `${M}(${cov.join(',')})`; }
+/**
+ * Explicación de un grupo: qué celdas tiene, qué variables cambian (y se eliminan),
+ * cuáles permanecen y qué término produce.
+ */
 function groupExplain(p, i, pos, dcs) {
   const n = S.n, cells = p.cov, k = K.popcount(p.m);
   const changing = [], fixed = [];
@@ -2534,6 +3179,9 @@ function groupExplain(p, i, pos, dcs) {
   Permanecen ${fx}.${usesX.length ? ` Usa ${usesX.length > 1 ? 'las X' : 'la X'} de ${usesX.join(', ')} para crecer.` : ''}</div>
   <div class="expr sm">Término: ${termH(p, pos)}</div></div>`;
 }
+/**
+ * Ejemplo de cómo se ubica una fila de la tabla de verdad en el mapa.
+ */
 function placementExample(req) {
   const L = mapLayout(S.n, S.mirror);
   const pick = req.length ? req[Math.floor(req.length / 2)] : (1 << S.n) - 2;
@@ -2544,11 +3192,17 @@ function placementExample(req) {
   if (S.tr) { [rv, cv] = [cv, rv]; [rb, cb] = [cb, rb]; }
   return `Por ejemplo, la fila ${pick} de la tabla es ${b} en binario: ${L.s ? `${sv} = ${K.bin(q.sub, L.s)} elige el mapa, ` : ''}${rv} = ${rb} indica la fila y ${cv} = ${cb} la columna. Ahí se escribe su valor.`;
 }
+/**
+ * Contenedor de pasos numerados; step(título, html) agrega uno.
+ */
 function stepShell() {
   const out = [];
   const step = (t, body) => out.push(`<div class="step"><div class="no">${out.length + 1}</div><div class="panel"><h2>${t}</h2>${body}</div></div>`);
   return { out, step };
 }
+/**
+ * Pasos iniciales comunes: escribir la función y ubicar los valores en el mapa.
+ */
 function stepIntro(step, M) {
   const { pos, d, W } = M, req = pos ? M.z : M.o;
   const names = S.names.slice(0, S.n).map(esc).join(', ');
@@ -2561,6 +3215,9 @@ function stepIntro(step, M) {
     <p>${placementExample(req)}</p>
     <p>El número pequeño de cada celda es el índice de la tabla de verdad. Los bordes opuestos del mapa se tocan.</p></div></div>`);
 }
+/**
+ * Paso final: la ecuación, su número de literales y la verificación en todas las filas.
+ */
 function stepFinal(step, M) {
   const { pos, res } = M;
   const nOK = (() => { for (let i = 0; i < (1 << S.n); i++) { if (S.vals[i] === 2) continue; const hit = res.terms.some(p => K.inCube(i, p)); const f = pos ? (hit ? 0 : 1) : (hit ? 1 : 0); if (f !== S.vals[i]) return false; } return true; })();
@@ -2569,6 +3226,9 @@ function stepFinal(step, M) {
     <p class="meta">${res.terms.length} términos y ${litCount(res)} literales (la forma canónica tenía ${canonLits}). <span class="pill ${nOK ? 'ok' : ''}">${nOK ? `Comprobada en las ${1 << S.n} combinaciones` : 'Revisar'}</span></p>
     <p class="hint">Para comprobarla a mano, toma dos o tres filas de la tabla, reemplaza los valores en la ecuación y verifica que dé el mismo F.</p>`);
 }
+/**
+ * Pestaña Paso a paso: elige entre el método visual del mapa y Quine–McCluskey.
+ */
 function renderSteps() {
   $$('#methodSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.method === S.method));
   const M = stepsModel(S.form), { pos, r, res, W } = M;
@@ -2583,6 +3243,9 @@ function renderSteps() {
   stepFinal(step, M);
   $('#stepsBox').innerHTML = out.join('');
 }
+/**
+ * Grupos esenciales de la solución con las celdas que solo ellos cubren.
+ */
 function essentialReasons(M) {
   const { r, res, W } = M;
   const essP = new Set(r.cover.essentials.map(i => r.primes[i]));
@@ -2591,6 +3254,10 @@ function essentialReasons(M) {
     return { ...x, only };
   });
 }
+/**
+ * Explicación del método de Petrick para la parte de la cobertura que no fijan los
+ * esenciales: el producto de sumas, su expansión y la elección del más barato.
+ */
 function petrickHTML(M) {
   const { r, W, pos } = M;
   const ess = new Set(r.cover.essentials);
@@ -2609,6 +3276,9 @@ function petrickHTML(M) {
   } else h += `<p>La expansión completa es muy larga para mostrarla; el programa la recorre con búsqueda exhaustiva y elige la combinación con menos grupos y, entre ellas, con menos literales.</p>`;
   return h;
 }
+/**
+ * Procedimiento con el mapa: esenciales, completar la cobertura y leer cada grupo.
+ */
 function stepsVisual(step, M) {
   const { pos, r, res, d, W } = M;
   const ers = essentialReasons(M);
@@ -2640,6 +3310,10 @@ function stepsVisual(step, M) {
   step('Escribir un término por grupo', `<div class="prose"><p>${pos ? 'En el producto de sumas cada grupo de ceros da un término suma: la variable que vale 0 en todo el grupo se escribe sin negar y la que vale 1 se niega.' : 'En la suma de productos cada grupo de unos da un término producto: la variable que vale 1 en todo el grupo se escribe sin negar y la que vale 0 se niega.'} Las variables que cambian dentro del grupo desaparecen.</p></div>
     <div class="grp-list">${res.terms.map((p, i) => groupExplain(p, i, pos, d)).join('')}</div>`);
 }
+/**
+ * Procedimiento de Quine–McCluskey: tablas de combinación, grupos máximos, tabla de
+ * cobertura, esenciales y método de Petrick.
+ */
 function stepsQM(step, M) {
   const { pos, r, res, d, W } = M;
   const it = r.qm.iterations;
@@ -2678,11 +3352,17 @@ function stepsQM(step, M) {
   step('Leer los grupos en el mapa', `<div class="flex2"><div class="mapwrap">${drawMap({ n: S.n, vals: S.vals, names: S.names.slice(0, S.n), tr: S.tr, mirror: S.mirror, cs: 46, groups: groupsOf(res) })}</div>
     <div style="flex:1;min-width:260px"><div class="grp-list">${res.terms.map((p, i) => groupExplain(p, i, pos, d)).join('')}</div></div></div>`);
 }
+/**
+ * Conecta los controles de la pestaña Paso a paso.
+ */
 function bindSteps() {
   $('#methodSeg').addEventListener('click', e => { const b = e.target.closest('[data-method]'); if (!b) return; S.method = b.dataset.method; save(); renderSteps(); });
   $('#stepsBox').addEventListener('mouseover', e => { const t = e.target.closest('[data-pg]'); if (t) focusGroup(t.closest('.step'), t.dataset.pg, true); });
   $('#stepsBox').addEventListener('mouseout', e => { const t = e.target.closest('[data-pg]'); if (t) focusGroup(t.closest('.step'), null, false); });
 }
+/**
+ * Símbolo SVG de una compuerta (AND, NAND, OR, NOR, XOR o NOT) en la posición (gx, gy).
+ */
 function gateShape(t, gx, gy, bw, h, st) {
   const bub = (cx) => `<circle cx="${cx}" cy="${gy + h / 2}" r="4.5" style="fill:var(--surface);${st}" stroke-width="2"/>`;
   if (t === 'AND' || t === 'NAND') {
@@ -2698,6 +3378,15 @@ function gateShape(t, gx, gy, bw, h, st) {
   return `<path d="M${gx} ${gy}L${gx + bw - 9} ${gy + h / 2}L${gx} ${gy + h}Z" style="fill:var(--surface);${st}" stroke-width="2"/>` + bub(gx + bw - 4.5);
 }
 const outX = (t, gx, bw) => gx + bw + ((t === 'NAND' || t === 'NOR') ? 9 : 0);
+/**
+ * Diagrama lógico en SVG.
+ * Cada variable entra una sola vez por la parte superior y baja por su bus vertical, con
+ * su inversor al lado si se necesita la variable negada. Las compuertas se ordenan en
+ * columnas por nivel lógico; los cables usan pistas verticales entre columnas y, cuando una
+ * compuerta estorba, se desvían por «corredores» horizontales libres. Los segmentos de una
+ * misma red se fusionan y los puntos de unión se marcan con un círculo.
+ * `opt.values` colorea los cables según su nivel lógico (naranja = 1).
+ */
 function drawCircuit(net, opt) {
   opt = opt || {};
   const n = opt.n || S.n, NMS = opt.names || S.names, nodes = net.nodes, al = net.alloc || K.allocate(net), val = opt.values;
@@ -2941,7 +3630,13 @@ function drawCircuit(net, opt) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${Ww} ${Hh}" width="${Ww * sc}" height="${Hh * sc}" font-family="Barlow, Arial, sans-serif">
     <rect width="${Ww}" height="${Hh}" style="fill:var(--surface)"/>${wires.join('')}${shapes.join('')}${dots.join('')}${labels.join('')}</svg>`;
 }
+/**
+ * Valor lógico de cada nodo del circuito con la combinación de los interruptores.
+ */
 function nodeValues(net) { return K.evalNet(net, bitsOf(S.dip)); }
+/**
+ * Pestaña Circuito: diagrama, interruptores, datos del circuito y lista de integrados.
+ */
 function renderCircuit() {
   const net = getNet(), vals = nodeValues(net), fe = famEff(), xr = xorInfo();
   $$('[data-fam]').forEach(x => { if (x.dataset.fam === 'xor') { x.disabled = !xr; x.title = xr ? 'La función es un XOR: se arma con 74LS86' : 'Disponible solo cuando la función es un XOR o XNOR de sus variables'; } x.setAttribute('aria-pressed', x.dataset.fam === S.family && !(S.family === 'xor' && !xr)); });
@@ -2967,12 +3662,17 @@ function renderCircuit() {
   $('#bomBox').innerHTML = al.chips.length ? `<div class="bom">${Object.entries(st.bom).map(([t, q]) => `<div><span><b>${chipName(t)}</b>: ${K.CHIPS[t].name}</span><span>× ${q}</span></div>`).join('')}</div>
     <p class="hint">Rótulos U1, U2… coinciden con el diagrama y con la protoboard.</p>` : '<p class="hint">No se necesitan integrados: la salida es una entrada directa o una constante.</p>';
 }
-/* .zip para Logisim-evolution: el circuito, su vector de prueba (tabla de verdad esperada) y un LEEME */
+/**
+ * Arma el .zip de Logisim: el .circ, su vector de prueba y un LEEME.
+ */
 function logisimZip(r, base, title, n, inNames, outVals) {
   const vector = K.logisimVector({ n, title, outs: outVals.map(vals => ({ vals })) }, inNames, r.outNames);
   const readme = `Laboratorio Karnaugh - ${title}\r\n\r\n1. Extrae ${base}.circ y ${base}_vector.txt de este .zip.\r\n2. Abre ${base}.circ con Logisim-evolution 3.x (Archivo > Abrir).\r\n3. Usa la herramienta de mano (Poke) para cambiar las entradas y ver las salidas.\r\n4. Simular > Vector de prueba > Cargar vector: elige ${base}_vector.txt y comprueba\r\n   el circuito contra la tabla de verdad en todas las combinaciones (x = no importa).\r\n5. Proyecto > Analizar circuito muestra su tabla de verdad y su ecuacion.\r\n${r.outNames.some((o, i) => o !== r.requested[i]) ? 'Las salidas cuyo nombre coincide con una entrada llevan el sufijo _out.\r\n' : ''}`;
   return K.zipStore([{ name: base + '.circ', data: r.xml }, { name: base + '_vector.txt', data: vector }, { name: 'LEEME.txt', data: readme }]);
 }
+/**
+ * Descarga el circuito de la calculadora para Logisim-evolution (.zip).
+ */
 async function downloadLogisim(net, outNames, base, outVals) {
   const ins = S.names.slice(0, S.n).map(x => x.normalize('NFD').replace(/[^A-Za-z0-9_]/g, '') || 'X');
   const r = Object.assign(K.toLogisim(net, S.n, ins, outNames), { requested: outNames });
@@ -2985,6 +3685,20 @@ async function downloadLogisim(net, outNames, base, outVals) {
 
 const WIRE_COLORS = ['#F2B705', '#2E7DDB', '#22A35A', '#F07F1A', '#8E44AD', '#13A39A', '#E056A0', '#8C9AA6', '#B5651D', '#5DADE2', '#9ACD32', '#4B5FD1'];
 const WIRE_NAMES = ['amarillo', 'azul', 'verde', 'naranja', 'violeta', 'turquesa', 'rosado', 'gris', 'café', 'celeste', 'verde limón', 'añil'];
+/**
+ * Modelo del montaje en protoboard: dónde va cada componente y cada cable.
+ * Coordenadas como en una protoboard real: columnas 1, 2, 3…; filas a–e arriba y f–j
+ * abajo del canal central; rieles + y − arriba (tp, tn) y abajo (bp, bn).
+ * - El DIP ocupa las primeras columnas, cruzando el canal; sus resistencias bajan al riel.
+ * - Cada integrado cruza el canal y ocupa 7 columnas, con 3 libres entre uno y otro.
+ * - Los LED de salida van a la derecha, con su resistencia de 330 Ω.
+ * - Cada red se cablea en cadena desde su fuente hacia sus destinos, de izquierda a
+ *   derecha. Los cables van por carriles horizontales (los cortos más cerca del integrado)
+ *   y cruzan el canal por columnas libres.
+ * - Las compuertas que sobran en integrados CMOS llevan sus entradas a GND (obligatorio);
+ *   en TTL solo si el usuario lo pide.
+ * @returns posiciones (X, Y), cables de señal, cables de alimentación, integrados y más
+ */
 function boardModel(net, ctx) {
   ctx = Object.assign({ n: S.n, names: S.names, outNames: ['F'] }, ctx || {});
   const n = ctx.n, nodes = net.nodes, al = net.alloc, nmB = i => ctx.names[i];
@@ -3121,6 +3835,9 @@ function boardModel(net, ctx) {
   OUTS.forEach((o, k) => { if (nodes[o].t === 'C1') power.push({ kind: 'vcc', a: { col: ledCol(k), row: takeHole(ledCol(k), 'B', Y.g), desc: `LED ${ctx.outNames[k] || 'F'} (ánodo)` }, rail: 'bp', rc: ledCol(k), key: 'led' }); });
   return { P, C, X, Y, d0, chipCol, L0, ledCol, OUTS, ctx, wires, power, al, pinLoc, railCol, netColor, ties, spare, outN };
 }
+/**
+ * Trayectoria SVG con esquinas redondeadas que pasa por los puntos dados.
+ */
 function roundedPath(pts, r) {
   let d = `M${pts[0][0]} ${pts[0][1]}`;
   for (let i = 1; i < pts.length; i++) {
@@ -3136,11 +3853,18 @@ function roundedPath(pts, r) {
   return d;
 }
 
+/**
+ * Nombre de cada pin de un integrado: VCC, GND, 1A, 1B, 1Y…
+ */
 function pinLabels(type) {
   const c = K.CHIPS[type], lab = { 14: 'VCC', 7: 'GND' };
   c.pins.forEach((g, i) => { g.slice(0, -1).forEach((p, j) => lab[p] = `${i + 1}${'ABCD'[j]}`); lab[g[g.length - 1]] = `${i + 1}Y`; });
   return lab;
 }
+/**
+ * Dibujo de la protoboard en SVG: rieles, agujeros, DIP, resistencias, integrados,
+ * LED y cables. Cada parte va en un grupo (gstep) para que la guía de montaje la resalte.
+ */
 function drawBoard(net, opt) {
   opt = opt || {};
   const B = boardModel(net, opt.ctx), { P, C, X, Y } = B, n = B.ctx.n, nmD = i => B.ctx.names[i], DIP = opt.ctx && opt.ctx.dip !== undefined ? opt.ctx.dip : S.dip;
@@ -3227,6 +3951,10 @@ function drawBoard(net, opt) {
 }
 /* ---------- guía de montaje ---------- */
 let GUIDE = null;
+/**
+ * Pasos de la guía de montaje: alimentación, resistencias, DIP, integrados, entradas
+ * sin usar, LED y cada cable de señal, en el orden en que conviene armar.
+ */
 function guideSteps(B) {
   const n = B.ctx.n, hc = S.series === 'hc', st = [], nm = i => B.ctx.names[i];
   const colName = w => WIRE_NAMES[WIRE_COLORS.indexOf(w.color)] || 'de color';
@@ -3248,6 +3976,9 @@ function guideSteps(B) {
   st.push({ key: null, t: 'Prueba el montaje', x: 'Enciende la fuente y recorre las combinaciones con el DIP, comparando el LED con la columna F de la tabla de verdad. Si una fila no coincide, revisa primero la alimentación de los integrados y luego los cables de esa señal.' });
   return st;
 }
+/**
+ * Muestra el paso actual de la guía: resalta lo que hay que colocar ahora y atenúa el resto.
+ */
 function applyGuide() {
   const svg = $('#boardBox svg'); if (!svg) return;
   const bar = $('#guideBar');
@@ -3268,6 +3999,9 @@ function applyGuide() {
   $('#guideNext').textContent = k === st.length - 1 ? 'Terminar' : 'Siguiente';
   $$('#wireBox tr[data-w]').forEach(tr => tr.classList.toggle('cur', st[k].wire !== undefined && tr.dataset.w === String(st[k].wire)));
 }
+/**
+ * Pestaña Protoboard: dibujo, lista de cableado, colores, materiales y notas.
+ */
 function renderBoard() {
   const net = getNet(), vals = nodeValues(net);
   const out = drawBoard(net, { values: vals, levels: $('#lvlChk').checked, pins: $('#pinChk').checked, scale: fitScale('board', '#boardBox', net) });
@@ -3305,7 +4039,9 @@ function renderBoard() {
     </ul>`;
   applyGuide();
 }
-/* nota sobre las compuertas sobrantes de los integrados (solo si hay alguna) */
+/**
+ * Nota sobre las compuertas que sobran en los integrados (CMOS: a GND; TTL: opcional).
+ */
 function spareNote(B) {
   const cm = B.spare.some(x => x.cmos && x.n), tt = B.spare.some(x => !x.cmos && x.n);
   let h = '';
@@ -3316,7 +4052,13 @@ function spareNote(B) {
 }
 const n4 = n => n <= 4 ? 4 : 8;
 const LASTSCALE = {};
+/**
+ * Último factor de zoom usado en el diagrama o la protoboard.
+ */
 function curScale(k) { return LASTSCALE[k] || 1; }
+/**
+ * Zoom para que el dibujo quepa en su recuadro, salvo que el usuario haya elegido uno.
+ */
 function fitScale(k, sel, net) {
   if (S.zoom[k]) return (LASTSCALE[k] = S.zoom[k]);
   const box = $(sel), probe = k === 'circ' ? drawCircuit(net, {}) : drawBoard(net, {}).svg;
@@ -3324,6 +4066,10 @@ function fitScale(k, sel, net) {
   const avail = Math.max(280, box.clientWidth - 4);
   return (LASTSCALE[k] = Math.max(k === 'board' ? .55 : .45, Math.min(1.5, avail / w)));
 }
+/**
+ * Lista de cableado en CSV (separado por punto y coma, para Excel en español),
+ * con una columna «Hecho» para ir marcando.
+ */
 function wiringCSV(B) {
   B = B || boardModel(getNet()); const hole = e => `${e.row}${e.col}`;
   const q = s => `"${String(s).replace(/"/g, '""')}"`;
@@ -3332,6 +4078,9 @@ function wiringCSV(B) {
   B.power.forEach((p, i) => rows.push([B.wires.length + i + 1, p.kind === 'vcc' ? '+5 V' : 'GND', p.kind === 'vcc' ? 'rojo' : 'negro', p.a ? `${hole(p.a)} ${p.a.desc}` : p.desc, `riel ${p.rail.endsWith('p') ? '+' : '-'} ${p.rail.startsWith('t') ? 'superior' : 'inferior'}`, '']));
   return '\ufeff' + rows.map(r => r.map(q).join(';')).join('\r\n');
 }
+/**
+ * Conecta los controles de las pestañas Circuito y Protoboard.
+ */
 function bindCircuitBoard() {
   $$('[data-fam]').forEach(b => b.addEventListener('click', () => { S.family = b.dataset.fam; $$('[data-fam]').forEach(x => x.setAttribute('aria-pressed', x === b)); save(); refresh(false); }));
   $$('[data-in]').forEach(b => b.addEventListener('click', () => { S.maxIn = +b.dataset.in; $$('[data-in]').forEach(x => x.setAttribute('aria-pressed', x === b)); save(); refresh(false); }));
@@ -3437,6 +4186,9 @@ const GLOS = [
   ['Entradas de compuerta', 'Total de entradas de todas las compuertas; mide el costo del cableado.'],
   ['Resistencia pull-down', 'Resistencia que lleva una entrada a 0 cuando nada la conecta a 5 V.'],
 ];
+/**
+ * Pestaña Teoría: índice y secciones, cada una con su demostración interactiva.
+ */
 function renderTheory() {
   const toc = `<nav class="toc" aria-label="Contenido de teoría">${secs.map(([id, t]) => `<a href="#${id}" data-sec="${id}">${t}</a>`).join('')}</nav>`;
   const sec = (id, title, html) => `<section class="panel th-sec" id="${id}"><h2>${title}</h2>${html}</section>`;
@@ -3587,6 +4339,9 @@ function renderTheory() {
   thIntro(); thAlg(); thTT(); thGray(); thAdj(); thGallery(); thVNew(); thPrim(); thX(); th56(); thEj(); thUni(); thChip(); thQuiz();
   bindTheory();
 }
+/**
+ * Demostración «De la tabla al mapa»: relaciona cada fila con su celda.
+ */
 function thIntro() {
   const i = TH.intro; let rows = '';
   for (let k = 0; k < 8; k++) rows += `<tr data-ii="${k}" class="${k === i ? 'cur' : ''}"><td class="idx">${k}</td>${[2, 1, 0].map(b => `<td>${(k >> b) & 1}</td>`).join('')}</tr>`;
@@ -3595,6 +4350,9 @@ function thIntro() {
   const q = K.cellPos(3, i);
   $('#thIntroTxt').innerHTML = `La fila ${i} es ${K.bin(i, 3)}: A = ${(i >> 2) & 1} elige la fila del mapa y BC = ${K.bin(K.gray(q.c), 2)} la columna. Observa que las columnas van 00, 01, <b>11</b>, 10.`;
 }
+/**
+ * Comprueba con tablas de verdad la ley de álgebra de Boole elegida.
+ */
 function thAlg() {
   const a = ALG[TH.alg];
   const pairs = [[a[2], a[3]], [a[4], a[5]]].filter(p => p[0]);
@@ -3609,6 +4367,9 @@ function thAlg() {
   $('#thAlg').innerHTML = h;
   $$('[data-alg]').forEach(tr => tr.style.background = +tr.dataset.alg === TH.alg ? 'var(--accent-soft)' : '');
 }
+/**
+ * Construcción del código Gray por reflexión, bit a bit.
+ */
 function thGray() {
   const b = TH.gb;
   let lists = [['0', '1']];
@@ -3624,6 +4385,9 @@ function thGray() {
   $('#thGray').innerHTML = `<div class="flex2">${lists.map((l, i) => col(l, i + 1)).join('<div style="align-self:center;font-size:22px;color:var(--muted)">→</div>')}</div>
     <p class="hint">Línea punteada: el «espejo». El primer bit es 0 arriba y 1 abajo; subrayado, el único bit que cambia respecto a la fila anterior (la primera se compara con la última).</p>`;
 }
+/**
+ * Galería de grupos correctos e incorrectos.
+ */
 function thGallery() {
   const ex = [
     { cells: [4, 5, 7, 6], ok: true, t: 'Fila completa de 4: elimina C y D → ' + OV('A') + 'B' },
@@ -3641,11 +4405,17 @@ function thGallery() {
       <figcaption><span class="v ${e.ok ? 'ok' : 'no'}">${e.ok ? '✓ Válido' : '✗ No válido'}</span>. ${e.t}</figcaption></figure>`;
   }).join('');
 }
+/**
+ * Genera una función aleatoria para el ejercicio de formar un grupo.
+ */
 function thVNew() {
   let v;
   do { v = Array.from({ length: 16 }, () => { const r = Math.random(); return r < .07 ? 2 : r < .5 ? 1 : 0; }); } while (v.filter(x => x === 1).length < 5);
   TH.vf = v; TH.vsel = new Set(); thGrp();
 }
+/**
+ * Valida en vivo el grupo que forma el estudiante (ver K.cubeInfo).
+ */
 function thGrp() {
   const n = 4, vals = TH.vf, cells = [...TH.vsel].sort((a, b) => a - b);
   const info = K.cubeInfo(n, vals, cells, 1);
@@ -3667,11 +4437,17 @@ function thGrp() {
   $('#thGrp').innerHTML = drawMap({ n, vals, names: TN.slice(0, n), cs: 52, interactive: true, sel: TH.vsel, selRing: true, groups });
   $('#thGrpTxt').innerHTML = `<div class="prose">${res}<p class="meta">Selección: ${cells.length ? 'm(' + cells.join(', ') + ')' : 'vacía'}</p></div>`;
 }
+/**
+ * Mapa de 5 variables con las vecinas de m5, incluidas las del otro submapa.
+ */
 function th56() {
   const i = 5, nb = new Map();
   for (let b = 0; b < 5; b++) nb.set(i ^ (1 << (4 - b)), TN[b]);
   $('#th56').innerHTML = drawMap({ n: 5, vals: null, names: TN.slice(0, 5), cs: 34, sel: new Set([i]), nb });
 }
+/**
+ * Ejemplo resuelto paso a paso (el grupo central es redundante).
+ */
 function thEj() {
   const vals = Array(16).fill(0);[1, 5, 6, 7, 11, 12, 13, 15].forEach(i => vals[i] = 1);
   const r = K.minimize(4, vals, false), P = r.primes;
@@ -3687,6 +4463,9 @@ function thEj() {
   $('#thEjTxt').innerHTML = txt;
   $$('#thEjSeg button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.ej === TH.ej));
 }
+/**
+ * Autoevaluación con explicación de cada respuesta y puntaje.
+ */
 function thQuiz() {
   const ans = TH.quiz;
   $('#thQuiz').innerHTML = QUIZ.map((q, i) => {
@@ -3696,6 +4475,9 @@ function thQuiz() {
   const done = Object.keys(ans).length, good = Object.entries(ans).filter(([i, a]) => QUIZ[i][2] === a).length;
   $('#thQuizScore').innerHTML = done ? `Respondidas ${done} de ${QUIZ.length}, correctas ${good}${done === QUIZ.length ? `: <b>${Math.round(good / QUIZ.length * 100)} %</b> <button class="btn sm" id="thQuizReset">Volver a intentar</button>` : ''}` : '';
 }
+/**
+ * Resalta en el índice la sección de teoría que se está leyendo.
+ */
 function scrollSpy() {
   if (!('IntersectionObserver' in window)) return;
   const io = new IntersectionObserver(es => {
@@ -3703,6 +4485,9 @@ function scrollSpy() {
   }, { rootMargin: '-30% 0px -60% 0px' });
   $$('.th-sec').forEach(s => io.observe(s));
 }
+/**
+ * Conecta las demostraciones interactivas de la teoría.
+ */
 function bindTheory() {
   const box = $('#theoryBox');
   box.addEventListener('click', e => {
@@ -3733,16 +4518,28 @@ function bindTheory() {
   scrollSpy();
 }
 
+/**
+ * Literal en HTML para la teoría (siempre con barra).
+ */
 function thLit(v, neg) { return neg ? `<span class="ov">${TN[v]}</span>` : TN[v]; }
+/**
+ * Término en HTML para la teoría.
+ */
 function thTerm(n, p, pos) {
   const L = K.termLits(n, p, pos);
   if (!L.length) return pos ? '0' : '1';
   return pos ? (L.length > 1 ? '(' + L.map(l => thLit(l.v, l.neg)).join(' + ') + ')' : thLit(L[0].v, L[0].neg)) : L.map(l => thLit(l.v, l.neg)).join('');
 }
+/**
+ * Ecuación en HTML para la teoría.
+ */
 function thExpr(n, res) {
   if (res.constant !== undefined) return String(res.constant);
   return res.terms.map(p => thTerm(n, p, res.form === 'pos')).join(res.form === 'pos' ? '' : ' + ');
 }
+/**
+ * Tabla de verdad editable con sus formas canónicas y simplificadas.
+ */
 function thTT() {
   const n = 3; let rows = '';
   for (let i = 0; i < 8; i++) {
@@ -3757,6 +4554,9 @@ function thTT() {
     <div class="expr sm">F = ${z.map(i => thTerm(3, { v: i, m: 0 }, true)).join('') || '1'}</div>
     <h3>Simplificadas</h3><div class="expr sm"><span class="lbl">SOP:</span> F = ${thExpr(3, s)}</div><div class="expr sm"><span class="lbl">POS:</span> F = ${thExpr(3, p)}</div>`;
 }
+/**
+ * Muestra las n celdas vecinas de la celda elegida.
+ */
 function thAdj() {
   const n = TH.adjN, N = 1 << n; if (TH.adjSel >= N) TH.adjSel = 0;
   const i = TH.adjSel, nb = new Map();
@@ -3764,6 +4564,9 @@ function thAdj() {
   $('#thAdj').innerHTML = drawMap({ n, vals: null, names: TN.slice(0, n), cs: n >= 5 ? 40 : 50, interactive: true, sel: new Set([i]), nb });
   $('#thAdjTxt').innerHTML = `m${i} = ${K.bin(i, n)} tiene ${n} vecinas: ${[...nb.entries()].map(([j, v]) => `m${j} (cambia ${v})`).join(', ')}. La letra en cada vecina indica qué variable cambia.`;
 }
+/**
+ * Demostración de grupos máximos, esenciales y cobertura mínima.
+ */
 function thPrim() {
   const vals = Array(16).fill(0);[0, 1, 2, 5, 6, 7, 8, 9, 10, 14].forEach(i => vals[i] = 1);
   const r = K.minimize(4, vals, false);
@@ -3778,6 +4581,9 @@ function thPrim() {
   $('#thPrimTxt').innerHTML = `<div class="prose"><p>${txt}</p></div>${list.map((p, i) => `<div class="legend" style="margin:4px 0"><span class="it" style="color:${gcol(i)}"><span class="sw"></span><span style="color:var(--ink)">${thTerm(4, p, false)} &nbsp;<span class="meta">m(${p.cov.join(',')})</span></span></span></div>`).join('')}
     ${TH.prim === 'minima' ? `<div class="expr">F = ${thExpr(4, r)}</div>` : ''}`;
 }
+/**
+ * Demostración de las condiciones de no importa: con y sin usar las X.
+ */
 function thX() {
   const vals = Array(16).fill(0);[1, 3, 7, 11, 15].forEach(i => vals[i] = 1);[0, 2, 5].forEach(i => vals[i] = TH.xUse ? 2 : 0);
   const r = K.minimize(4, vals, false);
@@ -3786,6 +4592,9 @@ function thX() {
 }
 const groupsOf2 = r => r.constant !== undefined ? [] : r.terms.map((p, i) => ({ p, color: gcol(i) }));
 const litCount2 = r => r.constant !== undefined ? 0 : r.terms.reduce((s, p) => s + 4 - K.popcount(p.m), 0);
+/**
+ * Construcción de NOT, AND y OR con solo NAND o solo NOR.
+ */
 function thUni() {
   const U = TH.uni === 'nand' ? 'NAND' : 'NOR';
   const st = 'stroke:var(--ink)', w = 'style="stroke:var(--ink)" stroke-width="2" fill="none"';
@@ -3808,6 +4617,9 @@ function thUni() {
   $('#thUni').innerHTML = `<svg viewBox="0 0 860 140" width="860" height="140" font-family="Barlow, Arial, sans-serif">${s}</svg>
     <p class="hint">${U === 'NAND' ? 'Una NAND con sus entradas unidas es un inversor. AND = NAND seguida de inversor. OR = NAND con las entradas invertidas (De Morgan).' : 'Una NOR con sus entradas unidas es un inversor. OR = NOR seguida de inversor. AND = NOR con las entradas invertidas (De Morgan).'}</p>`;
 }
+/**
+ * Distribución de pines del integrado elegido.
+ */
 function thChip() {
   const c = K.CHIPS[TH.chip], lab = {};
   lab[14] = 'VCC'; lab[7] = 'GND';
@@ -3832,14 +4644,26 @@ function thChip() {
 /* ===================== Práctica ===================== */
 const PR = { n: 4, form: 'sop', x: false, vals: null, names: DEF_NAMES.slice(), sel: new Set(), groups: [], showSol: false, checked: false, reveal: false };
 const prTarget = () => PR.form === 'pos' ? 0 : 1;
+/**
+ * Literal en HTML para la práctica.
+ */
 function prLit(l) { const t = esc(PR.names[l.v]); return l.neg ? (S.notation === 'bar' ? `<span class="ov">${t}</span>` : t + '′') : t; }
+/**
+ * Término en HTML para la práctica.
+ */
 function prTerm(p) {
   const pos = PR.form === 'pos', L = K.termLits(PR.n, p, pos);
   if (!L.length) return pos ? '0' : '1';
   if (!pos) return L.map(prLit).join('');
   return L.length > 1 ? '(' + L.map(prLit).join(' + ') + ')' : prLit(L[0]);
 }
+/**
+ * Ecuación en HTML para la práctica.
+ */
 function prExpr(terms) { return terms.length ? terms.map(prTerm).join(PR.form === 'pos' ? '' : ' + ') : (PR.form === 'pos' ? '1' : '0'); }
+/**
+ * Nuevo ejercicio aleatorio, con al menos 3 celdas por agrupar y al menos 3 que no.
+ */
 function prNew() {
   const N = 1 << PR.n;
   let v, t;
@@ -3849,10 +4673,21 @@ function prNew() {
   } while (t < 3 || t > N - 3);
   PR.vals = v; PR.names = DEF_NAMES.slice(); prReset();
 }
+/**
+ * Reinicia el ejercicio: borra los grupos, la selección y las respuestas.
+ */
 function prReset() { PR.sel = new Set(); PR.groups = []; prShowSol(false); PR.checked = false; PR.reveal = false; $('#pFeedback').innerHTML = ''; $('#pExprFb').innerHTML = ''; $('#pExpr').value = ''; $('#pScore').hidden = true; renderPractice(); }
 /* la solución dibujada en el mapa; el botón siempre refleja si está visible */
 function prShowSol(on) { PR.showSol = on; if (on) PR.reveal = true; $('#pSolve').textContent = on ? 'Ocultar solución' : 'Ver solución'; }
+/**
+ * Solución mínima del ejercicio.
+ */
 function prSolution() { return K.minimize(PR.n, PR.vals, PR.form === 'pos'); }
+/**
+ * Dibuja la práctica. Los términos y la ecuación de los grupos del estudiante solo se
+ * muestran cuando su ecuación es correcta o cuando pide la solución (PR.reveal), para no
+ * darle la respuesta antes de tiempo.
+ */
 function renderPractice() {
   if (!PR.vals) prNew();
   const req = PR.vals.map((v, i) => v === prTarget() ? i : -1).filter(i => i >= 0);
@@ -3868,6 +4703,10 @@ function renderPractice() {
     + (PR.reveal ? `<div class="expr sm" style="margin-top:8px">Con tus grupos: F = ${prExpr(PR.groups.map(g => g.p))}</div>`
       : `<p class="hint">Escribe el término de cada grupo y la ecuación final abajo. Los términos aparecen aquí cuando tu ecuación sea correcta o cuando pidas la solución.</p>`) : '';
 }
+/**
+ * Agrega el grupo seleccionado si es válido. Solo confirma que es válido: no da su
+ * término ni dice si es máximo.
+ */
 function prAdd() {
   const cells = [...PR.sel].sort((a, b) => a - b), fb = $('#pFeedback');
   const info = K.cubeInfo(PR.n, PR.vals, cells, prTarget());
@@ -3883,6 +4722,10 @@ function prAdd() {
   fb.innerHTML = `<span class="ok">Grupo ${PR.groups.length} agregado:</span> ${cells.length} celda${cells.length > 1 ? 's' : ''}, ${PR.form === 'pos' ? 'M' : 'm'}(${info.p.cov.join(',')}). ¿Qué variables cambian dentro del grupo y cuáles permanecen?`;
   renderPractice();
 }
+/**
+ * Revisar: puntaje sobre 100 (cobertura 50, número de grupos 25, literales 25) y lista
+ * de lo que falta, sobra o podía ser más grande.
+ */
 function prCheck() {
   const sol = prSolution(), target = prTarget();
   const req = PR.vals.map((v, i) => v === target ? i : -1).filter(i => i >= 0);
@@ -3909,6 +4752,10 @@ function prCheck() {
     ${score === 100 ? '<p><b style="color:var(--ok)">¡Solución mínima! Excelente.</b></p>' : '<p class="hint">Corrige y vuelve a revisar, o pulsa «Ver solución» para comparar.</p>'}`;
   $('#pScore').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
+/**
+ * Comprueba la ecuación escrita: que reproduzca la tabla (sin las X) y si es mínima
+ * en la forma que se practica (SOP o POS).
+ */
 function prExprCheck() {
   const fb = $('#pExprFb');
   try {
@@ -3929,6 +4776,9 @@ function prExprCheck() {
     }
   } catch (err) { fb.innerHTML = `<span class="bad">${esc(err.message)}</span>`; }
 }
+/**
+ * Conecta los controles de la pestaña Práctica.
+ */
 function bindPractice() {
   const segs = (sel, attr, fn) => $(sel).addEventListener('click', e => { const b = e.target.closest(`[${attr}]`); if (!b) return; $$(`${sel} button`).forEach(x => x.setAttribute('aria-pressed', x === b)); fn(b.getAttribute(attr)); });
   segs('#pN', 'data-pn', v => { PR.n = +v; prNew(); });
@@ -3972,17 +4822,26 @@ const MO_PRESETS = {
   custom: { t: 'Personalizado', n: 3, names: ['A', 'B', 'C'], outs: [{ name: 'F', f: () => 0 }, { name: 'G', f: () => 0 }], d: 'Define tus propias salidas tocando la tabla.' },
 };
 const MO = { preset: 'seg7', n: 4, names: [], outs: [], form: 'sop', fam: 'aon', maxIn: 4, dip: 0, sols: null };
+/**
+ * Carga un ejemplo de circuito de varias salidas (7 segmentos, sumador…).
+ */
 function moLoad(key) {
   const p = MO_PRESETS[key]; MO.preset = key; MO.n = p.n; MO.names = p.names.slice(); MO.dip = 0;
   MO.outs = p.outs.map(o => ({ name: o.name, vals: [...Array(1 << p.n)].map((_, i) => o.f(i)) }));
 }
 const moLit = l => { const t = esc(MO.names[l.v]); return l.neg ? (S.notation === 'bar' ? `<span class="ov">${t}</span>` : t + '′') : t; };
 const moJoin = () => MO.names.some(x => x.length > 1) ? '·' : '';
+/**
+ * Término en HTML para la pestaña Multisalida.
+ */
 function moTerm(p, pos) {
   const L = K.termLits(MO.n, p, pos);
   if (!pos) return L.map(moLit).join(moJoin());
   return L.length > 1 ? '(' + L.map(moLit).join(' + ') + ')' : moLit(L[0]);
 }
+/**
+ * Ecuación en HTML para la pestaña Multisalida.
+ */
 function moExpr(r, colors) {
   if (r.constant !== undefined) return String(r.constant);
   const pos = r.form === 'pos';
@@ -4008,14 +4867,24 @@ function moSolve() {
   MO.sols = base.map((r, i) => r.constant !== undefined ? r : Object.assign({}, r, { terms: best[i] }));
   return MO.sols;
 }
+/**
+ * Netlist del circuito de varias salidas con su asignación a integrados.
+ */
 function moNet() {
   const net = K.buildMulti(MO.n, MO.sols, MO.fam, MO.maxIn);
   net.alloc = K.allocate(net); return net;
 }
+/**
+ * Display de 7 segmentos en SVG con los segmentos encendidos.
+ */
 function seg7SVG(on) {
   const seg = { a: 'M14 6h32l-5 6H19z', b: 'M48 8l0 34-6 4V14z', c: 'M48 52v34l-6-6V56z', d: 'M14 88h32l-5-6H19z', e: 'M12 52v34l6-6V56z', f: 'M12 8v34l6 4V14z', g: 'M16 47h28l-4 4H20l-4-4zm4-4h20l4 4H16z' };
   return `<svg viewBox="0 0 60 96" width="66" height="106" aria-label="Display de 7 segmentos"><rect width="60" height="96" rx="6" fill="#1C1F26"/>${Object.entries(seg).map(([k, d]) => `<path d="${d}" fill="${on[k] ? '#FF4B2B' : '#3A2A2A'}"/>`).join('')}</svg>`;
 }
+/**
+ * Pestaña Multisalida: tabla de verdad, mapas y ecuaciones, términos compartidos,
+ * diagrama, protoboard e interruptores.
+ */
 function renderMulti() {
   if (!MO.outs.length) moLoad('seg7');
   const p = MO_PRESETS[MO.preset];
@@ -4068,10 +4937,19 @@ function renderMulti() {
   MO.board = bo.B;
   $('#moCirc').innerHTML = drawCircuit(net, { values: vals, n: MO.n, names: MO.names, outNames: MO.outs.map(o => o.name), scale: Math.max(.45, Math.min(1.2, ($('#moCirc').clientWidth - 4) / +drawCircuit(net, { n: MO.n, names: MO.names, outNames: MO.outs.map(o => o.name) }).match(/viewBox="0 0 ([\d.]+)/)[1])) });
 }
+/**
+ * Especificación del circuito de varias salidas para la exportación (ver K.designCode).
+ */
 function moSpec() {
   return { n: MO.n, entity: 'circuito_k', title: MO_PRESETS[MO.preset].t, ins: MO.names.slice(0, MO.n), outs: MO.outs.map((o, i) => ({ name: o.name, sol: MO.sols[i], vals: o.vals })) };
 }
+/**
+ * VHDL del circuito de varias salidas.
+ */
 function moVHDL() { return K.designCode('vhdl', moSpec()); }
+/**
+ * Conecta los controles de la pestaña Multisalida.
+ */
 function bindMulti() {
   $('#moPreset').innerHTML = Object.entries(MO_PRESETS).map(([k, p]) => `<option value="${k}">${p.t}</option>`).join('');
   $('#moPreset').addEventListener('change', e => { moLoad(e.target.value); renderMulti(); });
@@ -4139,6 +5017,9 @@ const RP_SECTIONS = [
   ['board', 'Protoboard y cableado', 'Montaje sugerido y lista de cables con sus coordenadas.'],
 ];
 const RP = { forms: 'both', not: 'bar' };
+/**
+ * Pestaña Informe: casillas de secciones y descripción de cada una.
+ */
 function renderReportUI() {
   $('#rpChecks').innerHTML = RP_SECTIONS.map(([k, t]) => `<label><input type="checkbox" data-rp="${k}" ${k === 'time' || k === 'haz' ? '' : 'checked'}> ${t}</label>`).join('');
   $('#rpPreview').innerHTML = RP_SECTIONS.map(([k, t, d]) => `<p style="margin:4px 0"><b>${t}:</b> ${d}</p>`).join('') + '<p style="margin:4px 0"><b>Conclusiones:</b> el texto que escribas arriba, al final del informe.</p>';
@@ -4147,6 +5028,9 @@ function renderReportUI() {
   $('#rpNot').addEventListener('click', e => { const b = e.target.closest('[data-rn]'); if (!b) return; RP.not = b.dataset.rn; $$('#rpNot button').forEach(x => x.setAttribute('aria-pressed', x === b)); });
 }
 const pdfSafe = s => String(s).replace(/Σ/g, 'Sum').replace(/Π/g, 'Prod').replace(/→/g, '->').replace(/[′’]/g, "'").replace(/✓/g, 'ok').replace(/★/g, '*').replace(/⊗/g, '(x)').replace(/⊕/g, ' xor ').replace(/↔/g, '<->').replace(/[−]/g, '-').replace(/[^\x00-\xFF–—•…]/g, '?');
+/**
+ * Convierte un dibujo SVG en una imagen JPEG para el PDF, con los colores del tema claro.
+ */
 function svgToPng(svg, targetW) {
   return new Promise((resolve, reject) => {
     const themed = svg.replace(/var\(--([\w-]+)\)/g, (_, k) => LIGHT[k] || '#000');
@@ -4165,6 +5049,9 @@ function svgToPng(svg, targetW) {
 }
 /* --- piezas de texto con negación --- */
 const pLit = l => RP.not === 'bar' ? { t: nm(l.v), neg: l.neg, f: 'times', st: 'italic' } : { t: nm(l.v) + (l.neg ? "'" : ''), f: 'times', st: 'italic' };
+/**
+ * Término como piezas de texto para el PDF (la negación se dibuja como una barra).
+ */
 function pTerm(p, pos) {
   const L = K.termLits(S.n, p, pos).map(pLit);
   const TM = t => ({ t, f: 'times' });
@@ -4172,11 +5059,20 @@ function pTerm(p, pos) {
   if (L.length === 1) return L;
   return [TM('('), ...L.flatMap((x, i) => i ? [TM(' + '), x] : [x]), TM(')')];
 }
+/**
+ * Ecuación como piezas de texto para el PDF.
+ */
 function pExpr(res) {
   if (res.constant !== undefined) return [[{ t: String(res.constant), f: 'times' }]];
   const pos = res.form === 'pos';
   return res.terms.map((p, i) => (i && !pos ? [{ t: ' + ', f: 'times' }] : []).concat(pTerm(p, pos)));
 }
+/**
+ * Genera el informe en PDF con jsPDF: portada, tabla de verdad, mapas, procedimiento
+ * de Quine–McCluskey, resultados, riesgos, diagrama y protoboard, según las secciones
+ * marcadas. Los textos se pasan a Latin-1 (pdfSafe) porque las fuentes estándar del PDF
+ * no tienen ∑, ∏ ni otros símbolos.
+ */
 async function makePDF() {
   if (!window.jspdf) { $('#rpMsg').textContent = 'No cargó la librería de PDF. Revisa tu conexión y recarga la página.'; return; }
   const want = new Set($$('[data-rp]').filter(c => c.checked).map(c => c.dataset.rp));
@@ -4427,6 +5323,9 @@ function fitTabs() {
   if (innerWidth > 860 && tabs.scrollWidth > tabs.clientWidth + 1) top.classList.add('stack');
   document.documentElement.style.setProperty('--top-h', top.offsetHeight + 'px');
 }
+/**
+ * Conecta las pestañas (también con las flechas del teclado) y el ajuste del menú.
+ */
 function bindTabs() {
   fitTabs();
   addEventListener('resize', fitTabs);
@@ -4438,6 +5337,9 @@ function bindTabs() {
     const j = (i + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length; tabs[j].focus(); showView(tabs[j].dataset.view);
   });
 }
+/**
+ * Ícono del botón de tema: sol en tema oscuro, luna en tema claro.
+ */
 function themeIcon() {
   const dark = (document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
   $('#themeBtn').innerHTML = dark
@@ -4446,6 +5348,9 @@ function themeIcon() {
   $('#themeBtn').setAttribute('aria-label', dark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro');
   $('#themeBtn').title = dark ? 'Tema oscuro activo. Cambiar a claro' : 'Tema claro activo. Cambiar a oscuro';
 }
+/**
+ * Tema claro u oscuro: respeta la preferencia del sistema hasta que el usuario elige uno.
+ */
 function bindTheme() {
   let th = null; try { th = localStorage.getItem('karnaugh-lab-theme'); } catch (e) { }
   if (th) document.documentElement.setAttribute('data-theme', th);
@@ -4458,6 +5363,10 @@ function bindTheme() {
     themeIcon();
   });
 }
+/**
+ * Arranque de la aplicación: tema, función del enlace (#k=…), controles, primer dibujo
+ * y API de descargas de claude.ai si está disponible.
+ */
 function init() {
   bindTheme();
   try { const h = decodeURIComponent(location.hash || ''); if (/^#k=/i.test(h)) { const f = decodeFn(h); S.n = f.n; S.names = f.names.concat(DEF_NAMES.slice(f.n)); S.vals = f.vals; } } catch (e) { }

@@ -1,3 +1,11 @@
+// Laboratorio Karnaugh · Copyright (c) 2026 andresdasugo · Licencia MIT (ver LICENSE)
+// SPDX-License-Identifier: MIT
+//
+// Pruebas del núcleo lógico: código Gray y geometría del mapa, minimización
+// (correcta en funciones aleatorias y mínima en las 256 funciones de 3
+// variables), analizador de ecuaciones, circuitos AND-OR/NAND/NOR/XOR y de
+// varias salidas, asignación a integrados, riesgos estáticos y exportación a
+// Logisim. Se ejecutan con:  npm test
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { K } from './load-core.mjs';

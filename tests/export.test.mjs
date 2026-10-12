@@ -1,3 +1,6 @@
+// Laboratorio Karnaugh · Copyright (c) 2026 andresdasugo · Licencia MIT (ver LICENSE)
+// SPDX-License-Identifier: MIT
+//
 // Pruebas de la exportación a VHDL, Verilog, C y Python: genera el diseño y su banco
 // de prueba (testbench) y los ejecuta con la herramienta real de cada lenguaje.
 // Si una herramienta no está instalada, sus pruebas se omiten.

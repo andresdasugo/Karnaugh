@@ -1,3 +1,8 @@
+# Laboratorio Karnaugh · Copyright (c) 2026 andresdasugo · Licencia MIT (ver LICENSE)
+# SPDX-License-Identifier: MIT
+#
+# Publica el sitio en GitHub Pages cada vez que cambia la rama main, después de
+# pasar las pruebas. Solo se publican los archivos que necesita el navegador.
 name: Publicar en GitHub Pages
 
 on:

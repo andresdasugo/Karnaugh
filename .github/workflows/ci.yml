@@ -1,3 +1,9 @@
+# Laboratorio Karnaugh · Copyright (c) 2026 andresdasugo · Licencia MIT (ver LICENSE)
+# SPDX-License-Identifier: MIT
+#
+# Pruebas automáticas: se ejecutan en cada cambio (push) y en cada pull request.
+# Instala GHDL e Icarus Verilog para que también se simulen los bancos de prueba
+# de VHDL y Verilog que genera la aplicación.
 name: Pruebas
 
 on:

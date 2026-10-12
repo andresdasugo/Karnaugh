@@ -5,7 +5,7 @@
 [![Pruebas](https://github.com/andresdasugo/Karnaugh/actions/workflows/ci.yml/badge.svg)](https://github.com/andresdasugo/Karnaugh/actions/workflows/ci.yml)
 [![Publicación](https://github.com/andresdasugo/Karnaugh/actions/workflows/pages.yml/badge.svg)](https://github.com/andresdasugo/Karnaugh/actions/workflows/pages.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
-![Versión](https://img.shields.io/badge/versión-5.2.1-informational)
+![Versión](https://img.shields.io/badge/versión-5.2.2-informational)
 
 ### ▶ [Abrir el laboratorio](https://andresdasugo.github.io/Karnaugh/)
 
@@ -79,6 +79,8 @@ El laboratorio es una sola página HTML con CSS y JavaScript sin dependencias de
 ├── docs/img/             # capturas para este README
 └── .github/workflows/    # pruebas automáticas y publicación en GitHub Pages
 ```
+
+El código está documentado: `index.html` empieza con un mapa de cómo está organizado, cada función tiene un comentario que explica qué hace, sus parámetros y su resultado, y los algoritmos (Quine–McCluskey, cobertura mínima, enrutado de cables, formato ZIP) se explican donde se usan.
 
 El núcleo lógico (objeto `K` dentro de `index.html`) no usa el DOM: contiene el código Gray y la geometría del mapa, Quine–McCluskey, la cobertura mínima exacta (esenciales + ramificación y poda), el analizador de ecuaciones, la construcción de circuitos, la asignación a integrados 74xx y la exportación a Logisim. Las pruebas lo cargan directamente desde `index.html`, así que siempre prueban el mismo código que usan los estudiantes.
 

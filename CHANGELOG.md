@@ -4,6 +4,21 @@ Todas las versiones importantes del Laboratorio Karnaugh. El formato sigue
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [5.2.2] - 2026-10-12
+
+### Agregado
+- Código exportado comentado para el estudiante: VHDL, Verilog, C y Python
+  explican cada parte (entidad/módulo, arquitectura, operadores) y, junto a
+  cada término de la ecuación, el grupo del mapa de Karnaugh que lo produce.
+  Los bancos de prueba explican qué es un testbench, cómo se aplican las
+  entradas, cómo se compara cada fila y cómo ejecutarlos, y el vector de
+  prueba de Logisim explica su formato.
+- Código fuente documentado: encabezado de autoría y licencia con el mapa del
+  archivo, encabezados de sección, comentario de cada función (qué hace,
+  parámetros y resultado), descripción del estado de la aplicación y de los
+  algoritmos. Encabezado de licencia (SPDX) en las pruebas y los flujos de
+  GitHub Actions.
+
 ## [5.2.1] - 2026-10-12
 
 ### Cambiado
@@ -142,6 +157,7 @@ Primera versión publicada en este repositorio.
 - Versiones iniciales: calculadora de mapas de Karnaugh, paso a paso, circuito,
   protoboard, teoría e informe en PDF.
 
+[5.2.2]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.2.2
 [5.2.1]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.2.1
 [5.2.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.2.0
 [5.1.2]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.1.2

@@ -1,4 +1,4 @@
-// Laboratorio Karnaugh · Copyright (c) 2026 andresdasugo · Licencia MIT (ver LICENSE)
+// Laboratorio Karnaugh · Copyright (c) 2026 Andres David Suarez Gomez · Licencia MIT (ver LICENSE)
 // SPDX-License-Identifier: MIT
 //
 // Pruebas del núcleo lógico: código Gray y geometría del mapa, minimización

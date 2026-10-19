@@ -1,4 +1,4 @@
-// Laboratorio Karnaugh · Copyright (c) 2026 andresdasugo · Licencia MIT (ver LICENSE)
+// Laboratorio Karnaugh · Copyright (c) 2026 Andres David Suarez Gomez · Licencia MIT (ver LICENSE)
 // SPDX-License-Identifier: MIT
 //
 // Pruebas de la exportación a VHDL, Verilog, C y Python: genera el diseño y su banco

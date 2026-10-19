@@ -4,6 +4,21 @@ Todas las versiones importantes del Laboratorio Karnaugh. El formato sigue
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [5.4.2] - 2026-10-19
+
+### Cambiado
+- Protoboard: el LED de salida se dibuja ahora de pie y visto de lado, como en
+  Tinkercad: cúpula roja translúcida con reflejo, base con el lado plano en el
+  cátodo y patas metálicas que entran en la fila f; la del ánodo (+) tiene el
+  doblez que la distingue. Encendido, se ilumina por dentro y emite un halo de
+  luz. El nombre de la salida sube un espacio para no quedar tapado.
+- El autor aparece con su nombre completo (Andres David Suarez Gomez) en la
+  licencia, el README, `package.json` y los encabezados del código.
+
+### Eliminado
+- Las notas del glosario que decían cómo se llaman «grupo» y «grupo máximo» en
+  los libros («implicante» e «implicante primo»).
+
 ## [5.4.1] - 2026-10-19
 
 ### Cambiado
@@ -202,6 +217,7 @@ Primera versión publicada en este repositorio.
 - Versiones iniciales: calculadora de mapas de Karnaugh, paso a paso, circuito,
   protoboard, teoría e informe en PDF.
 
+[5.4.2]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.4.2
 [5.4.1]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.4.1
 [5.4.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.4.0
 [5.3.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.3.0

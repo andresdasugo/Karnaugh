@@ -1,4 +1,4 @@
-// Laboratorio Karnaugh · Copyright (c) 2026 andresdasugo · Licencia MIT (ver LICENSE)
+// Laboratorio Karnaugh · Copyright (c) 2026 Andres David Suarez Gomez · Licencia MIT (ver LICENSE)
 // SPDX-License-Identifier: MIT
 //
 // Carga el núcleo lógico (objeto K) directamente desde index.html,

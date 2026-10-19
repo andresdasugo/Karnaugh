@@ -5,7 +5,7 @@
 [![Pruebas](https://github.com/andresdasugo/Karnaugh/actions/workflows/ci.yml/badge.svg)](https://github.com/andresdasugo/Karnaugh/actions/workflows/ci.yml)
 [![Publicación](https://github.com/andresdasugo/Karnaugh/actions/workflows/pages.yml/badge.svg)](https://github.com/andresdasugo/Karnaugh/actions/workflows/pages.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
-![Versión](https://img.shields.io/badge/versión-5.4.1-informational)
+![Versión](https://img.shields.io/badge/versión-5.4.2-informational)
 
 ### ▶ [Abrir el laboratorio](https://andresdasugo.github.io/Karnaugh/)
 
@@ -106,7 +106,7 @@ Los reportes de errores y las sugerencias son bienvenidos en [Issues](https://gi
 
 ## Licencia
 
-[MIT](LICENSE) © 2026 andresdasugo. jsPDF se distribuye bajo su propia licencia MIT ([vendor/jspdf/LICENSE](vendor/jspdf/LICENSE)).
+[MIT](LICENSE) © 2026 Andres David Suarez Gomez. jsPDF se distribuye bajo su propia licencia MIT ([vendor/jspdf/LICENSE](vendor/jspdf/LICENSE)).
 
 ## Referencias
 

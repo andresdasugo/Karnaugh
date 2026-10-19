@@ -1,10 +1,10 @@
 {
   "name": "laboratorio-karnaugh",
-  "version": "5.4.1",
+  "version": "5.4.2",
   "private": true,
   "description": "Laboratorio Karnaugh: simplifica, entiende y arma funciones lógicas con mapas de Karnaugh en el navegador.",
   "license": "MIT",
-  "author": "andresdasugo",
+  "author": "Andres David Suarez Gomez (https://github.com/andresdasugo)",
   "homepage": "https://andresdasugo.github.io/Karnaugh/",
   "repository": {
     "type": "git",

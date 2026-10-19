@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  Laboratorio Karnaugh · versión 5.3.0
+  Laboratorio Karnaugh · versión 5.4.0
   Simplifica, entiende y arma funciones lógicas con mapas de Karnaugh.
 
   Copyright (c) 2026 andresdasugo
@@ -33,7 +33,7 @@
 <title>Laboratorio Karnaugh</title>
 <meta name="description" content="Simplifica funciones lógicas con mapas de Karnaugh de 2 a 6 variables: SOP y POS mínimas, paso a paso con Quine–McCluskey, práctica, circuitos de varias salidas, protoboard, teoría e informe en PDF.">
 <meta name="application-name" content="Laboratorio Karnaugh">
-<meta name="version" content="5.3.0">
+<meta name="version" content="5.4.0">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Laboratorio Karnaugh">
 <meta property="og:description" content="Simplifica, entiende y arma funciones lógicas con mapas de Karnaugh, directamente en el navegador.">
@@ -619,6 +619,13 @@ table.cost td.best{color:var(--ok-t)}
 
 /* menú superior: ninguna pestaña puede quedar escondida detrás del título.
    Si no cabe junto al título, pasa a su propia fila (clase .stack, la pone fitTabs). */
+/* Relación protoboard ↔ diagrama: al enfocar una conexión (red), las demás se atenúan. */
+.nfocus [data-net], .nfocus .wire, .nfocus tr[data-w]{transition:opacity .12s}
+.nfocus [data-net]:not(.on), .nfocus .wire:not(.on){opacity:.12}
+.nfocus tr[data-w]:not(.on){opacity:.4}
+.nfocus tr[data-w].on td{background:var(--accent-soft);font-weight:600}
+.cn, .wire[data-net], tr[data-net]{cursor:pointer}
+.link-opt{gap:6px;font-size:14.5px;margin:-2px 0 8px}
 /* Grupos del menú: .tabgrp agrupa pestañas relacionadas y .tabsep las separa. */
 .tabgrp{display:flex;gap:4px;align-items:flex-end}
 .tabsep{flex:none;width:1.5px;height:22px;align-self:center;background:var(--line);margin:0 10px}
@@ -896,7 +903,7 @@ table.cost td.best{color:var(--ok-t)}
       <div class="panel"><h2>Mapa y ecuación de cada salida</h2><div class="mo-grid" id="moMaps"></div></div>
       <div class="panel"><h2>Términos compartidos</h2><div id="moShared"></div></div>
       <div class="panel"><h2>Diagrama lógico</h2><div class="svg-scroll" id="moCirc"></div><p class="hint">Las compuertas de cada término compartido se dibujan una sola vez y su salida se reparte a varias salidas.</p></div>
-      <div class="panel"><div class="mapbar"><h2 style="margin:0">Montaje en protoboard</h2><button class="btn sm" id="moCsv">Descargar CSV</button></div><div class="svg-scroll" id="moBoard"></div><p class="hint" id="moBoardHint"></p></div>
+      <div class="panel"><div class="mapbar"><h2 style="margin:0">Montaje en protoboard</h2><div class="row"><label class="row link-opt" style="margin:0"><input type="checkbox" class="linkChk"> Relacionar con el diagrama</label><button class="btn sm" id="moCsv">Descargar CSV</button></div></div><div class="svg-scroll" id="moBoard"></div><p class="hint" id="moBoardHint"></p></div>
       <div class="panel"><div class="mapbar"><h2 style="margin:0">Tabla de verdad</h2><span class="meta">Toca una salida para cambiarla: 0 → 1 → X</span></div><div class="tt-wrap" id="moTT"></div></div>
     </div>
   </div>
@@ -938,8 +945,9 @@ table.cost td.best{color:var(--ok-t)}
     <div class="panel circ-main">
       <div class="mapbar"><h2 style="margin:0">Diagrama lógico</h2>
         <div class="zoom"><button class="btn sm" data-zoom="circ" data-z="-1" aria-label="Alejar">−</button><button class="btn sm" data-zoom="circ" data-z="0">Ajustar</button><button class="btn sm" data-zoom="circ" data-z="1" aria-label="Acercar">+</button></div></div>
+      <label class="row link-opt"><input type="checkbox" class="linkChk"> Colores de cable y números de pin de la protoboard</label>
       <div class="svg-scroll" id="circBox"></div>
-      <p class="hint">Cada variable entra una sola vez por su interruptor y baja por su bus; el inversor de cada variable está junto a ella. Las líneas naranjas están en 1 lógico. Toca el nombre de una variable para cambiar su valor.</p>
+      <p class="hint" id="circHint"></p>
     </div>
   </div>
 </section>
@@ -956,6 +964,7 @@ table.cost td.best{color:var(--ok-t)}
       </div>
     </div>
     <div class="row opts">
+      <label><input type="checkbox" class="linkChk"> Relacionar con el diagrama del circuito</label>
       <label><input type="checkbox" id="lvlChk" checked> Ver niveles lógicos</label>
       <label><input type="checkbox" id="pinChk"> Mostrar número y función de cada pin</label>
       <label title="Las entradas sin usar de los integrados CMOS (74HC) siempre se conectan a GND; en los 74LS es opcional"><input type="checkbox" id="tieChk"> Conectar a GND también las entradas sin usar de los 74LS</label>
@@ -969,6 +978,12 @@ table.cost td.best{color:var(--ok-t)}
     </div>
     <div class="svg-scroll" id="boardBox"></div>
     <div class="legend" id="wireLegend"></div>
+    <!-- Diagrama enlazado con la protoboard (opción «Relacionar con el diagrama del circuito») -->
+    <div id="linkPanel" hidden>
+      <h3 style="margin:16px 0 4px">Diagrama del circuito</h3>
+      <p class="hint" style="margin:0 0 8px">Cada cable del diagrama tiene el color de su cable en la protoboard, y junto a cada compuerta están los números de pin del integrado (U1, U2…), los mismos de la lista de cableado. Pasa el cursor o toca un cable en la protoboard, en el diagrama o en la lista de cableado para resaltar esa conexión en los tres; tócalo otra vez (o pulsa Esc) para soltarlo.</p>
+      <div class="svg-scroll" id="circLinkBox"></div>
+    </div>
   </div>
   <div class="two" style="margin-top:14px">
     <div class="panel"><div class="mapbar"><h2 style="margin:0">Lista de cableado</h2><button class="btn sm" id="csvBtn">Descargar CSV</button></div><div class="wires-wrap" id="wireBox"></div></div>
@@ -2344,6 +2359,8 @@ const STORE = 'karnaugh-lab-v4';
                         convención espejo para 5 y 6 variables
      pull, tie          resistencias pull-down o pull-up, y si se conectan a GND
                         las entradas sin usar de los 74LS
+     link               relacionar protoboard y diagrama: mismos colores de cable,
+                        números de pin y resaltado conjunto de cada conexión
    R guarda los resultados de minimize para 'sop' y 'pos' (ver compute), y
    NET / NETKEY el circuito calculado y la clave con la que se calculó (ver getNet). */
 const S = Object.assign({
@@ -2360,7 +2377,7 @@ let NET = null, NETKEY = '';
  * trabajo siga ahí al volver a abrir la página. Si el navegador no lo permite, no pasa nada.
  */
 function save() {
-  try { localStorage.setItem(STORE, JSON.stringify({ n: S.n, names: S.names, vals: S.vals, form: S.form, notation: S.notation, family: S.family, maxIn: S.maxIn, series: S.series, view: S.view, method: S.method, introSeen: S.introSeen, tr: S.tr, mirror: S.mirror, pull: S.pull, tie: S.tie })); } catch (e) { }
+  try { localStorage.setItem(STORE, JSON.stringify({ n: S.n, names: S.names, vals: S.vals, form: S.form, notation: S.notation, family: S.family, maxIn: S.maxIn, series: S.series, view: S.view, method: S.method, introSeen: S.introSeen, tr: S.tr, mirror: S.mirror, pull: S.pull, tie: S.tie, link: S.link })); } catch (e) { }
 }
 /**
  * Mensaje breve en la parte inferior, con un botón de acción opcional (p. ej. «Deshacer»).
@@ -2985,7 +3002,7 @@ const DIRTY = new Set();
  * calculadora y la pestaña visible. Las demás se marcan para dibujarse al abrirlas.
  */
 function refresh(recompute = true) {
-  if (recompute) { compute(); save(); stopAnim(); }
+  if (recompute) { compute(); save(); stopAnim(); clearNetPins(); }
   DIRTY.add('steps'); DIRTY.add('circuit'); DIRTY.add('board');
   renderCalc();
   renderActive();
@@ -3413,11 +3430,20 @@ const outX = (t, gx, bw) => gx + bw + ((t === 'NAND' || t === 'NOR') ? 9 : 0);
  * compuerta estorba, se desvían por «corredores» horizontales libres. Los segmentos de una
  * misma red se fusionan y los puntos de unión se marcan con un círculo.
  * `opt.values` colorea los cables según su nivel lógico (naranja = 1).
+ * `opt.link` (ver linkOpts) dibuja en cambio cada cable con el color de su cable en la
+ * protoboard, escribe junto a cada compuerta los números de pin del integrado y marca
+ * cada conexión con data-net para resaltarla junto con la protoboard (ver setNetFocus).
  */
 function drawCircuit(net, opt) {
   opt = opt || {};
   const n = opt.n || S.n, NMS = opt.names || S.names, nodes = net.nodes, al = net.alloc || K.allocate(net), val = opt.values;
-  const wc = id => val ? (val[id] ? 'var(--hi)' : 'var(--lo)') : 'var(--ink)';
+  const lk = opt.link;
+  const wc = id => lk ? (lk.colors.get(id) || 'var(--ink)') : val ? (val[id] ? 'var(--hi)' : 'var(--lo)') : 'var(--ink)';
+  /* dn: atributos que identifican la red (conexión) de un trazo; tt: su nombre como en la lista de cableado */
+  const dn = id => typeof id === 'number' ? ` class="cn" data-net="${id}"` : '';
+  const tt = id => lk && lk.names.has(id) ? `<title>Señal ${esc(lk.names.get(id))}</title>` : '';
+  /* número de pin del integrado junto a una compuerta (solo con opt.link) */
+  const pinTxt = (x, y, t, anchor) => `<text x="${x}" y="${y}" font-size="9.5" font-weight="700" text-anchor="${anchor}" style="fill:var(--muted)">${t}</text>`;
   const isGate = nd => !['IN', 'C0', 'C1'].includes(nd.t);
   const railInv = new Map(), railInvIds = new Set();
   nodes.forEach(nd => { if (isGate(nd) && nd.in.length === 1 && nodes[nd.in[0]].t === 'IN') { railInv.set(nodes[nd.in[0]].v, nd.id); railInvIds.add(nd.id); } });
@@ -3614,10 +3640,10 @@ function drawCircuit(net, opt) {
         const inside = !end && (s.y1 === s.y2 ? Math.abs(s.y1 - py) < .1 && px > s.x1 && px < s.x2 : Math.abs(s.x1 - px) < .1 && py > s.y1 && py < s.y2);
         c += end ? 1 : inside ? 2 : 0;
       });
-      if (c >= 3) dots.push(`<circle cx="${px}" cy="${py}" r="3.2" style="fill:${wc(netId)}"/>`);
+      if (c >= 3) dots.push(`<circle${dn(netId)} cx="${px}" cy="${py}" r="3.2" style="fill:${wc(netId)}"/>`);
     });
   });
-  const wires = merged.map(s => `<path d="M${s.x1} ${s.y1}L${s.x2} ${s.y2}" style="stroke:${wc(s.net)}" stroke-width="2" stroke-linecap="round"/>`);
+  const wires = merged.map(s => `<path${dn(s.net)} d="M${s.x1} ${s.y1}L${s.x2} ${s.y2}" style="stroke:${wc(s.net)}" stroke-width="${lk ? 2.6 : 2}" stroke-linecap="round">${tt(s.net)}</path>`);
 
   /* ---- símbolos ---- */
   const shapes = [], labels = [];
@@ -3625,14 +3651,22 @@ function drawCircuit(net, opt) {
     const nd = nodes[id], g = geo.get(id), gx = colX[g.l], tied = nd.in.length === 1 && nd.t !== 'NOT';
     if (tied) {
       const y1 = g.y + g.h / 3, y2 = g.y + 2 * g.h / 3;
-      wires.push(`<path d="M${gx - 12} ${y1}V${y2}M${gx - 12} ${y1}H${gx + 4}M${gx - 12} ${y2}H${gx + 4}" fill="none" style="stroke:${wc(nd.in[0])}" stroke-width="2"/>`);
+      wires.push(`<path${dn(nd.in[0])} d="M${gx - 12} ${y1}V${y2}M${gx - 12} ${y1}H${gx + 4}M${gx - 12} ${y2}H${gx + 4}" fill="none" style="stroke:${wc(nd.in[0])}" stroke-width="2"/>`);
     } else {
       const k = nd.in.length;
-      nd.in.forEach((s, j) => { const py = g.y + g.h * (j + 1) / (k + 1); wires.push(`<path d="M${gx - 1} ${py}H${gx + 4}" style="stroke:${wc(s)}" stroke-width="2"/>`); });
+      nd.in.forEach((s, j) => { const py = g.y + g.h * (j + 1) / (k + 1); wires.push(`<path${dn(s)} d="M${gx - 1} ${py}H${gx + 4}" style="stroke:${wc(s)}" stroke-width="2"/>`); });
     }
     shapes.push(gateShape(nd.t, gx, g.y, g.bw, g.h, 'stroke:var(--ink)'));
     const w = al.where.get(id);
     if (w) labels.push(`<text x="${gx + 2}" y="${g.y + g.h + 12}" font-size="10.5" style="fill:var(--muted)">${al.chips[w.chip].label} · ${chipName(al.chips[w.chip].type)}</text>`);
+    if (lk && w) {   // pines del integrado: entradas a la izquierda, salida a la derecha
+      if (tied) labels.push(pinTxt(gx - 12, g.y + 2 * g.h / 3 + 12, w.inPins.join(','), 'middle'));   // debajo del puente de las entradas unidas
+      else {   // las compuertas OR, NOR y XOR tienen la entrada curva más a la izquierda
+        const ix = nd.t === 'XOR' ? 14 : nd.t === 'OR' || nd.t === 'NOR' ? 8 : 2;
+        nd.in.forEach((s, j) => labels.push(pinTxt(gx - ix, g.y + g.h * (j + 1) / (nd.in.length + 1) - 3, w.inPins[j], 'end')));
+      }
+      labels.push(pinTxt(outX(nd.t, gx, g.bw) + 3, g.y + g.h / 2 - 4, w.outPin, 'start'));
+    }
   });
   for (let v = 0; v < n; v++) {
     const id = inId.get(v), rx = varX[v], used = id !== undefined && (railTaps.has(id) || railInv.has(v));
@@ -3643,15 +3677,19 @@ function drawCircuit(net, opt) {
       const iid = railInv.get(v), cx = railX.get(iid), t = nodes[iid].t;
       const bw = t === 'NOT' ? 34 : 42, h = 26;
       let gsv = gateShape(t, 0, -h / 2, bw, h, 'stroke:var(--ink)');
-      if (t !== 'NOT') gsv = `<path d="M-12 ${-h / 6}V${h / 6}M-12 ${-h / 6}H2M-12 ${h / 6}H2" fill="none" style="stroke:${wc(id)}" stroke-width="2"/>` + gsv;
+      if (t !== 'NOT') gsv = `<path${dn(id)} d="M-12 ${-h / 6}V${h / 6}M-12 ${-h / 6}H2M-12 ${h / 6}H2" fill="none" style="stroke:${wc(id)}" stroke-width="2"/>` + gsv;
       shapes.push(`<g transform="translate(${cx} ${invTop}) rotate(90)">${gsv}</g>`);
       labels.push(`<text x="${cx + 6}" y="${yRailC(iid) + 14}" font-size="13" font-weight="700" style="fill:var(--ink)">${esc(NMS[v])}′</text>`);
       const w = al.where.get(iid); if (w) labels.push(`<text x="${cx + 15}" y="${invTop + 18}" font-size="10" style="fill:var(--muted)">${al.chips[w.chip].label}</text>`);
+      if (lk && w) {   // pines del inversor del bus: entrada arriba, salida abajo
+        labels.push(pinTxt(cx + 4, invTop - (t === 'NOT' ? 3 : 15), w.inPins.join(','), 'start'));
+        labels.push(pinTxt(cx - 6, yRailC(iid) - 1, w.outPin, 'end'));
+      }
     }
   }
   outInfo.forEach(({ oid, outN, outY, name }) => {
     const on = val ? val[oid] : null;
-    if (outN.t === 'C0' || outN.t === 'C1') { labels.push(`<text x="${xOut - 60}" y="${outY + 5}" font-size="14" font-weight="700" style="fill:var(--ink)">${outN.t === 'C1' ? '+5 V' : 'GND'}</text>`); wires.push(`<path d="M${xOut - 22} ${outY}H${xOut}" style="stroke:${wc(oid)}" stroke-width="2"/>`); }
+    if (outN.t === 'C0' || outN.t === 'C1') { labels.push(`<text x="${xOut - 60}" y="${outY + 5}" font-size="14" font-weight="700" style="fill:var(--ink)">${outN.t === 'C1' ? '+5 V' : 'GND'}</text>`); wires.push(`<path${dn(oid)} d="M${xOut - 22} ${outY}H${xOut}" style="stroke:${wc(oid)}" stroke-width="2"/>`); }
     shapes.push(`<circle cx="${xOut + 14}" cy="${outY}" r="13" style="fill:${on ? 'var(--hi)' : 'var(--surface)'};stroke:var(--ink)" stroke-width="2"/>
       <text x="${xOut + 34}" y="${outY + 6}" font-size="18" font-weight="700" style="fill:var(--ink)">${esc(name)}${val ? ' = ' + on : ''}</text>`);
   });
@@ -3672,7 +3710,10 @@ function renderCircuit() {
   const net = getNet(), vals = nodeValues(net), fe = famEff(), xr = xorInfo();
   $$('[data-fam]').forEach(x => { if (x.dataset.fam === 'xor') { x.disabled = !xr; x.title = xr ? 'La función es un XOR: se arma con 74LS86' : 'Disponible solo cuando la función es un XOR o XNOR de sus variables'; } x.setAttribute('aria-pressed', x.dataset.fam === S.family && !(S.family === 'xor' && !xr)); });
   if (S.family === 'xor' && !xr) $$('[data-fam="aon"]').forEach(x => x.setAttribute('aria-pressed', 'true'));
-  $('#circBox').innerHTML = drawCircuit(net, { values: vals, scale: fitScale('circ', '#circBox', net) });
+  $('#circBox').innerHTML = drawCircuit(net, { values: vals, scale: fitScale('circ', '#circBox', net), link: S.link ? linkOpts(boardModel(net)) : null });
+  $('#circHint').textContent = (S.link ? 'Cada cable tiene el color de su cable en la protoboard y junto a cada compuerta están los números de pin del integrado (U1, U2…). Pasa el cursor o toca un cable para resaltar esa conexión. '
+    : 'Cada variable entra una sola vez por su interruptor y baja por su bus; el inversor de cada variable está junto a ella. Las líneas naranjas están en 1 lógico. ') + 'Toca el nombre de una variable para cambiar su valor.';
+  if (S.link) setNetFocus(LINK_ROOTS.circ, NETPIN.circ);
   $('#dipCirc').innerHTML = `<div class="dipzone" style="margin:0">${dipHTML()}</div>`;
   const st = K.netStats(net), ok = K.verifyNet(net, S.n, S.vals);
   const fam = { aon: 'AND, OR y NOT', nand: 'solo NAND', nor: 'solo NOR', xor: 'XOR de 2 entradas' }[fe];
@@ -3969,14 +4010,14 @@ function drawBoard(net, opt) {
       <text x="${lx}" y="${gapCD - (k % 2 && B.OUTS.length > 3 ? P : 0)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="#222">${esc(nmO)}</text>`);
   });
   const tip = (x, y) => `<circle cx="${x}" cy="${y}" r="2.1" fill="#B8BCC0" stroke="#6A6E72" stroke-width=".6"/>`;
-  const jumper = (d, col, key, glow, ends) => `<g class="wire" data-w="${key}">${glow ? `<path d="${d}" fill="none" stroke="#FF6A2E" stroke-opacity=".45" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>` : ''}<path d="${d}" fill="none" stroke="rgba(0,0,0,.38)" stroke-width="4.6" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1" stroke-linejoin="round" transform="translate(-.6 -.6)"/>${ends.map(([x, y]) => tip(x, y)).join('')}</g>`;
+  const jumper = (d, col, key, glow, ends, net, title) => `<g class="wire" data-w="${key}"${net !== undefined ? ` data-net="${net}"` : ''}>${title ? `<title>${esc(title)}</title>` : ''}${glow ? `<path d="${d}" fill="none" stroke="#FF6A2E" stroke-opacity=".45" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>` : ''}<path d="${d}" fill="none" stroke="rgba(0,0,0,.38)" stroke-width="4.6" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1" stroke-linejoin="round" transform="translate(-.6 -.6)"/>${ends.map(([x, y]) => tip(x, y)).join('')}</g>`;
   B.power.forEach((p, i) => {
     const col = p.kind === 'vcc' ? '#D63031' : '#2B2B2B';
     const x1 = p.a ? X(p.a.col) : X(p.rc), y1 = p.a ? Y[p.a.row] : Y[p.from.rail], y2 = Y[p.rail];
     put(p.key, jumper(`M${x1} ${y1}L${x1} ${y2}`, col, 'p' + i, false, [[x1, y1], [x1, y2]]));
   });
   B.wires.forEach((w, i) => {
-    put('w' + i, jumper(roundedPath(w.pts, 3.5), w.color, i, lvl && vals && vals[w.net], [w.pts[0], w.pts[w.pts.length - 1]]));
+    put('w' + i, jumper(roundedPath(w.pts, 3.5), w.color, i, lvl && vals && vals[w.net], [w.pts[0], w.pts[w.pts.length - 1]], w.net, `Cable ${i + 1}: señal ${w.name}`));
   });
   const order = ['rails', 'res', 'dip', 'dipvcc', ...B.al.chips.map((c, i) => 'chip' + i), 'tie', 'led', ...B.wires.map((w, i) => 'w' + i)];
   const body = order.filter(k => groups[k]).map(k => `<g class="gstep" data-key="${k}">${groups[k].join('')}</g>`).join('');
@@ -4016,7 +4057,7 @@ function guideSteps(B) {
 function applyGuide() {
   const svg = $('#boardBox svg'); if (!svg) return;
   const bar = $('#guideBar');
-  if (!GUIDE) { bar.hidden = true; svg.querySelectorAll('.gstep').forEach(g => { g.style.opacity = ''; g.style.filter = ''; }); return; }
+  if (!GUIDE) { bar.hidden = true; svg.querySelectorAll('.gstep').forEach(g => { g.style.opacity = ''; g.style.filter = ''; }); if (S.link) setNetFocus(['#circLinkBox'], NETPIN.board); return; }
   const st = GUIDE.steps, k = GUIDE.k, keyIdx = {};
   st.forEach((s, i) => { if (s.key) keyIdx[s.key] = i; });
   svg.querySelectorAll('.gstep').forEach(g => {
@@ -4032,19 +4073,84 @@ function applyGuide() {
   $('#guidePrev').disabled = k === 0;
   $('#guideNext').textContent = k === st.length - 1 ? 'Terminar' : 'Siguiente';
   $$('#wireBox tr[data-w]').forEach(tr => tr.classList.toggle('cur', st[k].wire !== undefined && tr.dataset.w === String(st[k].wire)));
+  // con el diagrama enlazado, se resalta en él la conexión del cable de este paso
+  if (S.link && GUIDE.B) setNetFocus(['#circLinkBox'], st[k].wire !== undefined ? GUIDE.B.wires[st[k].wire].net : null);
+}
+/* ===================== Relación protoboard ↔ diagrama =====================
+   Con la opción «Relacionar con el diagrama» (S.link), el diagrama lógico usa los colores
+   de los cables de la protoboard y muestra los números de pin, y cada conexión (red de la
+   netlist) se puede resaltar a la vez en el diagrama, la protoboard y la lista de cableado.
+   Los trazos de una misma red llevan el atributo data-net con el id del nodo que la produce. */
+
+/** Colores y nombres de cada red tal como están en la protoboard, para dibujar el diagrama con ellos. */
+function linkOpts(B) {
+  const names = new Map(); B.wires.forEach(w => names.set(w.net, w.name));
+  return { colors: B.netColor, names };
+}
+/* Grupos de contenedores que se resaltan juntos, y la red fijada con un clic en cada grupo. */
+const LINK_ROOTS = { board: ['#boardBox', '#circLinkBox', '#wireBox'], circ: ['#circBox'], multi: ['#moBoard', '#moCirc'] };
+const NETPIN = { board: null, circ: null, multi: null };
+/**
+ * Resalta una red en los contenedores dados y atenúa las demás conexiones
+ * (net = null quita el resaltado). Ver las reglas .nfocus de la hoja de estilos.
+ */
+function setNetFocus(roots, net) {
+  const on = net !== null && net !== undefined;
+  roots.forEach(sel => {
+    const r = $(sel); if (!r) return;
+    r.classList.toggle('nfocus', on);
+    r.querySelectorAll('[data-net]').forEach(el => el.classList.toggle('on', on && el.dataset.net === String(net)));
+  });
 }
 /**
+ * Conecta el resaltado de un grupo: pasar el cursor por una conexión la resalta en todos
+ * los contenedores del grupo; un clic la fija (otro clic, o Esc, la suelta).
+ * `active()` dice si la relación está encendida en ese momento.
+ */
+function bindNetLink(key, active) {
+  const roots = LINK_ROOTS[key], get = e => e.target.closest('[data-net]');
+  roots.forEach(sel => {
+    const r = $(sel);
+    r.addEventListener('mouseover', e => { const el = get(e); if (el && active() && NETPIN[key] === null) setNetFocus(roots, el.dataset.net); });
+    r.addEventListener('mouseout', e => { if (get(e) && active() && NETPIN[key] === null) setNetFocus(roots, null); });
+    r.addEventListener('click', e => {
+      const el = get(e); if (!el || !active()) return;
+      NETPIN[key] = NETPIN[key] === el.dataset.net ? null : el.dataset.net;
+      setNetFocus(roots, NETPIN[key]);
+    });
+  });
+}
+/** Suelta las conexiones fijadas (al cambiar la función, el circuito o la opción). */
+function clearNetPins() { Object.keys(NETPIN).forEach(k => { NETPIN[k] = null; setNetFocus(LINK_ROOTS[k], null); }); }
+/** Enciende o apaga la relación protoboard ↔ diagrama desde cualquiera de sus casillas. */
+function setLink(on) {
+  S.link = on; save();
+  $$('.linkChk').forEach(c => c.checked = on);
+  clearNetPins();
+  refresh(false);
+  if (S.view === 'multi') renderMulti();
+}
+
+/**
  * Pestaña Protoboard: dibujo, lista de cableado, colores, materiales y notas.
+ * Con S.link también dibuja, debajo, el diagrama enlazado con la protoboard.
  */
 function renderBoard() {
   const net = getNet(), vals = nodeValues(net);
   const out = drawBoard(net, { values: vals, levels: $('#lvlChk').checked, pins: $('#pinChk').checked, scale: fitScale('board', '#boardBox', net) });
   $('#boardBox').innerHTML = out.svg;
   const B = out.B, boards = Math.ceil(B.C / 63);
-  if (GUIDE) { GUIDE.steps = guideSteps(B); GUIDE.k = Math.min(GUIDE.k, GUIDE.steps.length - 1); }
+  if (GUIDE) { GUIDE.B = B; GUIDE.steps = guideSteps(B); GUIDE.k = Math.min(GUIDE.k, GUIDE.steps.length - 1); }
+  // diagrama enlazado: mismos colores de cable y números de pin que esta protoboard
+  const lbox = $('#circLinkBox');
+  $('#linkPanel').hidden = !S.link;
+  if (S.link) {
+    const lk = linkOpts(B), w0 = +drawCircuit(net, { link: lk }).match(/viewBox="0 0 ([\d.]+)/)[1];
+    lbox.innerHTML = drawCircuit(net, { values: vals, link: lk, scale: Math.max(.45, Math.min(1.3, (lbox.clientWidth - 4) / w0)) });
+  } else lbox.innerHTML = '';
   $('#boardHint').textContent = (B.al.chips.length > 8 ? 'Montaje extenso: prueba la otra forma (SOP/POS) o compuertas de hasta 4 entradas. ' : '') + `${B.al.chips.length} integrado${B.al.chips.length === 1 ? '' : 's'}, ${B.wires.length} cables de señal y ${B.power.length} de alimentación, en ${B.C} columnas${boards > 1 ? ` (necesitas ${boards} protoboards de 63 columnas unidas)` : ' (cabe en una protoboard de 63 columnas)'}`;
   const hole = e => `${e.row}${e.col}`;
-  const rows = B.wires.map((w, i) => `<tr data-w="${i}"><td>${i + 1}</td><td><span class="wire-sw" style="background:${w.color}"></span></td><td><b>${esc(w.name)}</b></td><td>${hole(w.a)} · ${esc(w.a.desc)}</td><td>${hole(w.b)} · ${esc(w.b.desc)}</td></tr>`).join('');
+  const rows = B.wires.map((w, i) => `<tr data-w="${i}" data-net="${w.net}"><td>${i + 1}</td><td><span class="wire-sw" style="background:${w.color}"></span></td><td><b>${esc(w.name)}</b></td><td>${hole(w.a)} · ${esc(w.a.desc)}</td><td>${hole(w.b)} · ${esc(w.b.desc)}</td></tr>`).join('');
   const prow = B.power.map((p, i) => `<tr data-w="p${i}"><td>${B.wires.length + i + 1}</td><td><span class="wire-sw" style="background:${p.kind === 'vcc' ? '#D63031' : '#2B2B2B'}"></span></td><td><b>${p.kind === 'vcc' ? '+5 V' : 'GND'}</b></td><td>${p.a ? hole(p.a) + ' · ' + esc(p.a.desc) : esc(p.desc)}</td><td>riel ${p.rail.endsWith('p') ? '+' : '−'} ${p.rail.startsWith('t') ? 'superior' : 'inferior'}, col. ${p.rc}</td></tr>`).join('');
   $('#wireBox').innerHTML = `<table class="wires"><tr><th>#</th><th></th><th>Señal</th><th>Desde</th><th>Hasta</th></tr>${rows}${prow}</table>`;
   // leyenda de colores
@@ -4072,6 +4178,7 @@ function renderBoard() {
       <li>Recorre la tabla de verdad con el DIP: el LED debe seguir la columna F fila por fila.</li>
     </ul>`;
   applyGuide();
+  if (S.link && !GUIDE) setNetFocus(LINK_ROOTS.board, NETPIN.board);
 }
 /**
  * Nota sobre las compuertas que sobran en los integrados (CMOS: a GND; TTL: opcional).
@@ -4132,13 +4239,17 @@ function bindCircuitBoard() {
   $('#boardBox').addEventListener('click', e => { const g = e.target.closest('.board-sw'); if (g) { S.dip ^= 1 << (S.n - 1 - +g.dataset.bit); refresh(false); } });
   ['#lvlChk', '#pinChk'].forEach(id => $(id).addEventListener('change', renderBoard));
   $('#tieChk').addEventListener('change', () => { S.tie = $('#tieChk').checked; renderBoard(); });
-  const hl = (on, w) => { if (GUIDE) return; const svg = $('#boardBox svg'); if (!svg) return; svg.classList.toggle('wfocus', on); svg.querySelectorAll('.wire').forEach(g => g.classList.toggle('focus', on && g.dataset.w === w)); };
+  const hl = (on, w) => { if (GUIDE || S.link) return; const svg = $('#boardBox svg'); if (!svg) return; svg.classList.toggle('wfocus', on); svg.querySelectorAll('.wire').forEach(g => g.classList.toggle('focus', on && g.dataset.w === w)); };
   $('#wireBox').addEventListener('mouseover', e => { const tr = e.target.closest('tr[data-w]'); if (tr) hl(true, tr.dataset.w); });
   $('#wireBox').addEventListener('mouseout', () => hl(false));
-  $('#wireBox').addEventListener('click', e => { const tr = e.target.closest('tr[data-w]'); if (tr) { hl(true, tr.dataset.w); setTimeout(() => hl(false), 1600); } });
+  $('#wireBox').addEventListener('click', e => { const tr = e.target.closest('tr[data-w]'); if (tr && !S.link) { hl(true, tr.dataset.w); setTimeout(() => hl(false), 1600); } });
+  bindNetLink('board', () => S.link && !GUIDE);
+  bindNetLink('circ', () => S.link);
+  $$('.linkChk').forEach(c => c.addEventListener('change', () => setLink(c.checked)));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') clearNetPins(); });
   $('#guideBtn').addEventListener('click', () => {
     if (GUIDE) { GUIDE = null; applyGuide(); $('#guideBtn').textContent = 'Guía de montaje paso a paso'; return; }
-    const B = boardModel(getNet()); GUIDE = { k: 0, steps: guideSteps(B) }; $('#guideBtn').textContent = 'Cerrar la guía'; applyGuide();
+    const B = boardModel(getNet()); clearNetPins(); GUIDE = { k: 0, steps: guideSteps(B), B }; $('#guideBtn').textContent = 'Cerrar la guía'; applyGuide();
     $('#guideBar').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
   $('#guidePrev').addEventListener('click', () => { if (GUIDE && GUIDE.k > 0) { GUIDE.k--; applyGuide(); } });
@@ -4969,7 +5080,8 @@ function renderMulti() {
   $('#moBoard').innerHTML = bo.svg;
   $('#moBoardHint').textContent = `${bo.B.al.chips.length} integrados, ${bo.B.wires.length} cables de señal, ${bo.B.power.length} de alimentación y ${MO.outs.length} LED${MO.outs.length > 1 ? 's' : ''}, en ${bo.B.C} columnas${bo.B.C > 63 ? ` (necesitas ${Math.ceil(bo.B.C / 63)} protoboards de 63 columnas)` : ''}. Toca los interruptores del DIP para probarlo.`;
   MO.board = bo.B;
-  $('#moCirc').innerHTML = drawCircuit(net, { values: vals, n: MO.n, names: MO.names, outNames: MO.outs.map(o => o.name), scale: Math.max(.45, Math.min(1.2, ($('#moCirc').clientWidth - 4) / +drawCircuit(net, { n: MO.n, names: MO.names, outNames: MO.outs.map(o => o.name) }).match(/viewBox="0 0 ([\d.]+)/)[1])) });
+  $('#moCirc').innerHTML = drawCircuit(net, { values: vals, link: S.link ? linkOpts(bo.B) : null, n: MO.n, names: MO.names, outNames: MO.outs.map(o => o.name), scale: Math.max(.45, Math.min(1.2, ($('#moCirc').clientWidth - 4) / +drawCircuit(net, { n: MO.n, names: MO.names, outNames: MO.outs.map(o => o.name) }).match(/viewBox="0 0 ([\d.]+)/)[1])) });
+  if (S.link) setNetFocus(LINK_ROOTS.multi, NETPIN.multi);
 }
 /**
  * Especificación del circuito de varias salidas para la exportación (ver K.designCode).
@@ -5026,6 +5138,7 @@ function bindMulti() {
     if (res === 'ok') toast('Circuito para Logisim listo');
   });
   $('#moVhdl').addEventListener('click', () => copyText(moVHDL(), 'VHDL copiado'));
+  bindNetLink('multi', () => S.link);
   $('#moHdlZip').addEventListener('click', async () => {
     const spec = moSpec();
     const readme = `Laboratorio Karnaugh - ${MO_PRESETS[MO.preset].t}\r\n\r\n  circuito_k.vhd / circuito_k.v        el circuito\r\n  circuito_k_tb.vhd / circuito_k_tb.v  banco de prueba (testbench)\r\n\r\nCon GHDL:\r\n  ghdl -a circuito_k.vhd circuito_k_tb.vhd\r\n  ghdl -e circuito_k_tb\r\n  ghdl -r circuito_k_tb\r\n\r\nCon Icarus Verilog:\r\n  iverilog -o circuito_k_tb circuito_k.v circuito_k_tb.v\r\n  vvp circuito_k_tb\r\n\r\nEn ModelSim, Quartus o Vivado: agrega el circuito y su banco de prueba y simula circuito_k_tb.\r\nEl banco de prueba compara cada salida con la tabla de verdad en todas las combinaciones\r\n(las X no se comparan) e informa \"Prueba superada\" o las filas que fallan.\r\n`;
@@ -5299,7 +5412,8 @@ async function makePDF() {
     if (want.has('circ')) {
       H1('5. Diagrama lógico', 120);
       RICH(`Implementación de la ${S.form === 'sop' ? 'SOP' : 'POS'} mínima con ${FAMNAME[famEff()]}, ${S.maxIn === 2 ? 'compuertas de 2 entradas' : 'compuertas de hasta 4 entradas'}, serie ${S.series === 'hc' ? '74HC' : '74LS'}: `, [mxF(), op(' = '), ...pExpr(sol(S.form))], 10, 'normal');
-      await IMG(drawCircuit(net, {}), CW, 170);
+      await IMG(drawCircuit(net, S.link ? { link: linkOpts(boardModel(net)) } : {}), CW, 170);
+      if (S.link) T('Los colores de los cables y los números de pin coinciden con el montaje en protoboard.', 9.5, 'italic', [86, 102, 125]);
       const stt = K.netStats(net);
       T(`Compuertas: ${stt.gates} · Integrados: ${stt.chips} · Verificado contra la tabla de verdad: ${K.verifyNet(net, S.n, S.vals) ? 'sí' : 'no'}`);
       TABLE(['Integrado', 'Función', 'Cantidad'], Object.entries(stt.bom).map(([t, q]) => [chipName(t), K.CHIPS[t].name, String(q)]), [40, 100, 26], 9);
@@ -5410,6 +5524,7 @@ function init() {
   $$('[data-in]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.in === S.maxIn));
   $$('[data-ser]').forEach(b => b.setAttribute('aria-pressed', b.dataset.ser === S.series));
   $('#tieChk').checked = S.tie === true;
+  $$('.linkChk').forEach(c => c.checked = !!S.link);
   $('#introCard').hidden = !!S.introSeen;
   bindCalc(); bindSteps(); bindPractice(); bindMulti(); bindCircuitBoard(); bindTabs();
   $$('#pullSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.pull === (S.pull || 'down')));

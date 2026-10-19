@@ -4,6 +4,22 @@ Todas las versiones importantes del Laboratorio Karnaugh. El formato sigue
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [5.4.0] - 2026-10-19
+
+### Agregado
+- Opción **«Relacionar con el diagrama del circuito»** para ver qué cable de la
+  protoboard corresponde a qué conexión del diagrama:
+  - El diagrama dibuja cada conexión con el color de su cable en la protoboard
+    y escribe junto a cada compuerta los números de pin del integrado (los
+    mismos de la lista de cableado: «U2 pin 3»).
+  - Al pasar el cursor o tocar un cable en la protoboard, una conexión del
+    diagrama o una fila de la lista de cableado, esa conexión se resalta en los
+    tres lugares; un toque la deja fijada y otro toque (o Esc) la suelta.
+  - En la guía de montaje, el diagrama marca la conexión del cable de cada paso.
+  - Está en las pestañas Protoboard (con el diagrama debajo del montaje),
+    Circuito y Multisalida, se recuerda al volver a abrir la página y se aplica
+    también al diagrama del informe PDF.
+
 ## [5.3.0] - 2026-10-12
 
 ### Cambiado
@@ -176,6 +192,7 @@ Primera versión publicada en este repositorio.
 - Versiones iniciales: calculadora de mapas de Karnaugh, paso a paso, circuito,
   protoboard, teoría e informe en PDF.
 
+[5.4.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.4.0
 [5.3.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.3.0
 [5.2.2]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.2.2
 [5.2.1]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.2.1

@@ -5,7 +5,7 @@
 [![Pruebas](https://github.com/andresdasugo/Karnaugh/actions/workflows/ci.yml/badge.svg)](https://github.com/andresdasugo/Karnaugh/actions/workflows/ci.yml)
 [![Publicación](https://github.com/andresdasugo/Karnaugh/actions/workflows/pages.yml/badge.svg)](https://github.com/andresdasugo/Karnaugh/actions/workflows/pages.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
-![Versión](https://img.shields.io/badge/versión-5.3.0-informational)
+![Versión](https://img.shields.io/badge/versión-5.4.0-informational)
 
 ### ▶ [Abrir el laboratorio](https://andresdasugo.github.io/Karnaugh/)
 
@@ -23,8 +23,8 @@ El menú tiene dos grupos: las cinco primeras pestañas trabajan con la función
 | --- | --- |
 | **Calculadora** | Define la función tocando el mapa o la tabla de verdad, escribiéndola como ecuación (`a'b + c(a + !d)`) o como lista ∑m / ∏M, con condiciones de no importa (X). Obtén al instante la SOP y la POS mínimas, las formas canónicas, el costo en compuertas, los riesgos estáticos, el diagrama de tiempos y la exportación a VHDL, Verilog, C/Arduino, Python, LaTeX y Logisim, cada una con su **banco de prueba (testbench)**. |
 | **Paso a paso** | El procedimiento completo explicado: con el mapa (como se hace a mano) o con el método tabular de **Quine–McCluskey** y el método de **Petrick**. |
-| **Circuito** | Diagrama lógico con AND-OR, solo NAND, solo NOR o XOR, compuertas de 2 o hasta 4 entradas y la lista de integrados 74LS / 74HC. Interruptores interactivos para simularlo. |
-| **Protoboard** | Montaje sugerido en protoboard con guía cable por cable, lista de cableado descargable en CSV y notas para energizar sin dañar los integrados. |
+| **Circuito** | Diagrama lógico con AND-OR, solo NAND, solo NOR o XOR, compuertas de 2 o hasta 4 entradas y la lista de integrados 74LS / 74HC. Interruptores interactivos para simularlo. Opcionalmente, con los colores de cable y los números de pin de la protoboard. |
+| **Protoboard** | Montaje sugerido en protoboard con guía cable por cable, lista de cableado descargable en CSV y notas para energizar sin dañar los integrados. Con **«Relacionar con el diagrama del circuito»**, el diagrama aparece debajo con los mismos colores de cable y los números de pin de cada integrado, y al tocar un cable (en la protoboard, el diagrama o la lista) se resalta esa conexión en los tres. |
 | **Informe** | Genera un informe en PDF listo para entregar, con la tabla, los mapas, el procedimiento, el circuito y el montaje. |
 | | *Herramientas independientes de la calculadora:* |
 | **Multisalida** | Circuitos de varias salidas con términos compartidos: decodificador BCD a 7 segmentos, sumador completo, comparador, BCD a exceso 3, decodificador 2 a 4, binario a Gray o tu propio diseño. Se exportan a VHDL y Verilog con banco de prueba, y a Logisim con vector de prueba. |

@@ -1,6 +1,6 @@
 {
   "name": "laboratorio-karnaugh",
-  "version": "5.3.0",
+  "version": "5.4.0",
   "private": true,
   "description": "Laboratorio Karnaugh: simplifica, entiende y arma funciones lógicas con mapas de Karnaugh en el navegador.",
   "license": "MIT",

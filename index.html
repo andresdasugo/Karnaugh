@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  Laboratorio Karnaugh · versión 5.4.0
+  Laboratorio Karnaugh · versión 5.4.1
   Simplifica, entiende y arma funciones lógicas con mapas de Karnaugh.
 
   Copyright (c) 2026 andresdasugo
@@ -33,7 +33,7 @@
 <title>Laboratorio Karnaugh</title>
 <meta name="description" content="Simplifica funciones lógicas con mapas de Karnaugh de 2 a 6 variables: SOP y POS mínimas, paso a paso con Quine–McCluskey, práctica, circuitos de varias salidas, protoboard, teoría e informe en PDF.">
 <meta name="application-name" content="Laboratorio Karnaugh">
-<meta name="version" content="5.4.0">
+<meta name="version" content="5.4.1">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Laboratorio Karnaugh">
 <meta property="og:description" content="Simplifica, entiende y arma funciones lógicas con mapas de Karnaugh, directamente en el navegador.">
@@ -3943,6 +3943,14 @@ function drawBoard(net, opt) {
   const vals = opt.values, lvl = opt.levels;
   const W = X(C) + 34, H = Y.bn + 30;
   const s = [];
+  /* Degradados del LED (cuerpo encendido, apagado y halo de luz). El id es distinto en cada dibujo
+     porque la página puede tener varias protoboards a la vez, algunas en pestañas ocultas. */
+  const gid = 'pb' + (drawBoard.count = (drawBoard.count || 0) + 1);
+  s.push(`<defs>
+    <radialGradient id="${gid}on" cx=".5" cy=".5" r=".5" fx=".38" fy=".32"><stop offset="0" stop-color="#FFF6EC"/><stop offset=".25" stop-color="#FFB48E"/><stop offset=".6" stop-color="#FF4A1F"/><stop offset="1" stop-color="#C0260F"/></radialGradient>
+    <radialGradient id="${gid}off" cx=".5" cy=".5" r=".5" fx=".38" fy=".32"><stop offset="0" stop-color="#C9796C"/><stop offset=".35" stop-color="#93352A"/><stop offset="1" stop-color="#55140C"/></radialGradient>
+    <radialGradient id="${gid}halo"><stop offset="0" stop-color="#FF7A3C" stop-opacity=".75"/><stop offset=".4" stop-color="#FF5A2E" stop-opacity=".35"/><stop offset="1" stop-color="#FF5A2E" stop-opacity="0"/></radialGradient>
+  </defs>`);
   s.push(`<rect x="6" y="6" width="${W - 12}" height="${H - 12}" rx="10" fill="#F3F2EA" stroke="#D2CFC2" stroke-width="2"/>`);
   s.push(`<rect x="10" y="${Y.e + P * .55}" width="${W - 20}" height="${P * .9}" fill="#E4E2D7"/>`);
   [['tp', '#D63031'], ['tn', '#1E5BC6'], ['bp', '#D63031'], ['bn', '#1E5BC6']].forEach(([r, c]) => {
@@ -4003,10 +4011,20 @@ function drawBoard(net, opt) {
   B.OUTS.forEach((oid, k) => {
     const ledOn = vals ? vals[oid] : 0, c0 = B.ledCol(k), nmO = B.ctx.outNames[k] || 'F';
     resistor('led', c0 + 1, 'j', 'bn', ['#F07F1A', '#F07F1A', '#8B4513'], k === B.OUTS.length - 1 ? '330 Ω' : '');
-    const lx = (X(c0) + X(c0 + 1)) / 2;
-    put('led', `<path d="M${X(c0)} ${Y.f}V${Y.f - 18}M${X(c0 + 1)} ${Y.f}V${Y.f - 14}" stroke="#A8A8A8" stroke-width="1.6"/>
-      ${ledOn ? `<circle cx="${lx}" cy="${Y.f - 26}" r="18" fill="#FF5A2E" opacity=".35"/>` : ''}
-      <circle cx="${lx}" cy="${Y.f - 26}" r="8.5" fill="${ledOn ? '#FF5A2E' : '#7A2A1A'}" stroke="#4A1A10"><title>LED de la salida ${esc(nmO)} (ánodo en la columna ${c0})</title></circle>
+    // LED de 5 mm visto desde arriba: ánodo (+, pata larga) en la columna c0 y cátodo (−, lado
+    // plano de la base) en c0 + 1, ambos en la fila f; el cuerpo queda sobre el canal central.
+    const lx = (X(c0) + X(c0 + 1)) / 2, cy = Y.e + 6, R = 11, fl = 8.6, fh = Math.sqrt(R * R - fl * fl);
+    const legs = [X(c0), X(c0 + 1)].map(x => `M${x} ${Y.f}V${cy + 6}`).join('');
+    put('led', `<g class="led-part"><title>LED de la salida ${esc(nmO)}: ánodo (+, pata larga) en f${c0}, cátodo (−, lado plano) en f${c0 + 1}</title>
+      ${ledOn ? `<circle cx="${lx}" cy="${cy}" r="30" fill="url(#${gid}halo)"/>` : ''}
+      <path d="${legs}" stroke="#7A7E82" stroke-width="2.4" stroke-linecap="round"/><path d="${legs}" stroke="#D3D6D9" stroke-width="1.1" stroke-linecap="round"/>
+      ${[X(c0), X(c0 + 1)].map(x => `<circle cx="${x}" cy="${Y.f}" r="2.1" fill="#B8BCC0" stroke="#6A6E72" stroke-width=".6"/>`).join('')}
+      <path d="M${lx + fl} ${cy - fh}A${R} ${R} 0 1 0 ${lx + fl} ${cy + fh}Z" fill="${ledOn ? '#E8401C' : '#7A2216'}" stroke="${ledOn ? '#9A2410' : '#43100A'}" stroke-width="1"/>
+      <circle cx="${lx}" cy="${cy}" r="8.4" fill="url(#${gid}${ledOn ? 'on' : 'off'})" stroke="${ledOn ? '#B8230E' : '#4E120B'}" stroke-width=".8"/>
+      <ellipse cx="${lx - 3}" cy="${cy - 3.6}" rx="3.1" ry="2" fill="#fff" opacity="${ledOn ? .85 : .38}"/>
+      <circle cx="${lx + 3.4}" cy="${cy + 3.2}" r="1" fill="#fff" opacity="${ledOn ? .5 : .2}"/>
+      <text x="${X(c0) - 6}" y="${Y.f - 3.5}" text-anchor="end" font-size="9" font-weight="700" fill="#C0392B">+</text>
+      <text x="${X(c0 + 1) + 6}" y="${Y.f - 3.5}" font-size="9" font-weight="700" fill="#1E5BC6">−</text></g>
       <text x="${lx}" y="${gapCD - (k % 2 && B.OUTS.length > 3 ? P : 0)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="#222">${esc(nmO)}</text>`);
   });
   const tip = (x, y) => `<circle cx="${x}" cy="${y}" r="2.1" fill="#B8BCC0" stroke="#6A6E72" stroke-width=".6"/>`;
@@ -4046,7 +4064,7 @@ function guideSteps(B) {
     const cm = B.ties.some(t => t.cmos), tt = B.ties.some(t => !t.cmos);
     st.push({ key: 'tie', t: 'Conecta a GND las entradas sin usar', x: `Son las entradas de las compuertas que sobran en cada integrado. Con cables negros cortos, lleva a tierra: ${B.ties.map(t => `${B.al.chips[t.chip].label} pin ${t.pin}`).join(', ')}.${cm ? ' En los integrados CMOS (74HC) es obligatorio: una entrada al aire puede oscilar, calentar el integrado y hasta dañarlo.' : ''}${tt ? ' En los 74LS es opcional: al aire se comportarían como 1, y conectarlas mejora la inmunidad al ruido.' : ''}` });
   }
-  st.push({ key: 'led', t: B.OUTS.length > 1 ? `Coloca los ${B.OUTS.length} LED de salida` : 'Coloca el LED de salida', x: B.OUTS.map((o, k) => `${B.OUTS.length > 1 ? esc(B.ctx.outNames[k]) + ': ' : ''}pata larga (ánodo) en la columna ${B.ledCol(k)} y pata corta (cátodo) en la ${B.ledCol(k) + 1}, fila f; resistencia de 330 Ω de la fila j de la columna ${B.ledCol(k) + 1} al riel −`).join('. ') + '.' });
+  st.push({ key: 'led', t: B.OUTS.length > 1 ? `Coloca los ${B.OUTS.length} LED de salida` : 'Coloca el LED de salida', x: B.OUTS.map((o, k) => `${B.OUTS.length > 1 ? esc(B.ctx.outNames[k]) + ': ' : ''}pata larga (ánodo, +) en la columna ${B.ledCol(k)} y pata corta (cátodo, −, del lado plano de la base) en la ${B.ledCol(k) + 1}, fila f; resistencia de 330 Ω de la fila j de la columna ${B.ledCol(k) + 1} al riel −`).join('. ') + '.' });
   B.wires.forEach((w, i) => st.push({ key: 'w' + i, wire: i, t: `Cable ${i + 1} de ${B.wires.length}: señal ${esc(w.name)}`, x: `Cable ${colName(w)}: de ${w.a.row}${w.a.col} (${esc(w.a.desc)}) a ${w.b.row}${w.b.col} (${esc(w.b.desc)}). Llévalo plano sobre la protoboard, siguiendo el recorrido que muestra el dibujo.` }));
   st.push({ key: null, t: 'Prueba el montaje', x: 'Enciende la fuente y recorre las combinaciones con el DIP, comparando el LED con la columna F de la tabla de verdad. Si una fila no coincide, revisa primero la alimentación de los integrados y luego los cables de esa señal.' });
   return st;

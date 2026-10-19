@@ -4,6 +4,16 @@ Todas las versiones importantes del Laboratorio Karnaugh. El formato sigue
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [5.4.1] - 2026-10-19
+
+### Cambiado
+- Protoboard: nuevo dibujo del LED de salida. Ahora es un LED de 5 mm visto
+  desde arriba, con base de lado plano en el cátodo, cúpula con volumen y
+  brillo, patas metálicas que entran en sus agujeros y marcas + (ánodo) y −
+  (cátodo). Encendido, la cúpula se ilumina y emite un halo de luz que se
+  desvanece; apagado, se ve rojo oscuro translúcido. La guía de montaje
+  menciona también el lado plano y las marcas + y −.
+
 ## [5.4.0] - 2026-10-19
 
 ### Agregado
@@ -192,6 +202,7 @@ Primera versión publicada en este repositorio.
 - Versiones iniciales: calculadora de mapas de Karnaugh, paso a paso, circuito,
   protoboard, teoría e informe en PDF.
 
+[5.4.1]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.4.1
 [5.4.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.4.0
 [5.3.0]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.3.0
 [5.2.2]: https://github.com/andresdasugo/Karnaugh/releases/tag/v5.2.2
